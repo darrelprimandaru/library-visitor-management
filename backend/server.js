@@ -1,10 +1,16 @@
+const fs = require('fs');
+
+console.log('Available files in ./routes:', fs.readdirSync('./routes'));
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const studentRoutes = require('./routes/student');
 
 const app = express();
 app.use(express.json());
 app.use(cors());
+app.use('/api/students', studentRoutes);
 
 mongoose.connect('mongodb://localhost:27017/library_visitors', {
   useNewUrlParser: true,
