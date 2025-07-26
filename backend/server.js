@@ -6,35 +6,25 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const studentRoutes = require('./routes/student');
+const vistorRoutes = require('./routes/visitor');
 const Student = require('./models/Student');
+const Visitor = require('./models/Visitor');
+const Log = require('./models/Log');
+
+const visitorRoutes = require('./routes/visitor');
 
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 app.use('/api/students', studentRoutes);
+app.use('/api/visitors', visitorRoutes);
 
 mongoose.connect('mongodb://localhost:27017/library_visitors', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
 
-const visitorSchema = new mongoose.Schema({
-  name: String,
-  barcode: String,
-  class: String,
-  purpose: { type: String, default: '-' },
-});
-
-const logSchema = new mongoose.Schema({
-  visitor: { type: mongoose.Schema.Types.ObjectId, ref: 'Visitor' },
-  checkinTime: { type: Date, default: Date.now },
-  checkoutTime: Date,
-  purpose: { type: String, default: '-' },
-});
-
-const Visitor = mongoose.model('Visitor', visitorSchema);
-const Log = mongoose.model('Log', logSchema);
 
 app.post('/api/checkin', async (req, res) => {
   try {

@@ -35,4 +35,15 @@ router.get('/', async (req, res) => {
   }
 });
 
+//Delete a student
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Student.findByIdAndDelete(id);
+    res.status(200).json({ message: 'Student deleted' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 module.exports = router;
