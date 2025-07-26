@@ -6,13 +6,26 @@ const Student = require('../models/Student');
 router.post('/', async (req, res) => {
   try {
     const { barcode, name, class: studentClass } = req.body;
+
+    // ✅ Check for existing barcode
+    const existing = await Student.findOne({ barcode });
+    if (existing) {
+      return res.status(400).json({ error: "A student with this barcode already exists." });
+    }
+
     const student = new Student({ barcode, name, class: studentClass });
     await student.save();
     res.status(201).json(student);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+  // Covers all versions of MongoDB/Mongoose
+  if (err.code === 11000 && err.message.includes('barcode')) {
+    return res.status(400).json({ error: "A student with this barcode already exists." });
   }
+  res.status(400).json({ error: err.message });
+}
+
 });
+
 
 // Get student by barcode
 router.get('/:barcode', async (req, res) => {
