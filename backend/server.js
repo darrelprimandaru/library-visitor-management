@@ -6,6 +6,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const studentRoutes = require('./routes/student');
+const Student = require('./models/Student');
+
 
 const app = express();
 app.use(express.json());
@@ -35,32 +37,40 @@ const Visitor = mongoose.model('Visitor', visitorSchema);
 const Log = mongoose.model('Log', logSchema);
 
 app.post('/api/checkin', async (req, res) => {
-  const { barcode, purpose } = req.body;
+  try {
+    const { barcode, purpose } = req.body;
 
-  // 1. Find the student
-  const student = await Student.findOne({ barcode });
-  if (!student) {
-    return res.status(404).json({ message: 'Student not found' });
-  }
+    const student = await Student.findOne({ barcode });
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
 
-  // 2. Check if visitor record already exists for this barcode
-  let visitor = await Visitor.findOne({ barcode });
-  if (!visitor) {
-    visitor = await Visitor.create({
-      name: student.name,
-      barcode: student.barcode,
-      class: student.class
+    const visitor = await Visitor.findOneAndUpdate(
+      { barcode },
+      {
+        name: student.name,
+        class: student.class,
+        barcode: student.barcode,
+      },
+      {
+        new: true,
+        upsert: true,
+      }
+    );
+
+    const log = await Log.create({
+      visitor: visitor._id,
+      purpose: purpose || '-',
     });
+
+    res.json({ visitor, log });
+  } catch (err) {
+    console.error('❌ Check-in error:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
-
-  // 3. Create new log with purpose
-  const log = await Log.create({
-    visitor: visitor._id,
-    purpose: purpose || '-' // Save purpose or fallback
-  });
-
-  res.json({ visitor, log });
 });
+
+
 
 
 app.post('/api/checkout/:logId', async (req, res) => {
@@ -89,31 +99,62 @@ app.get('/api/stats', async (req, res) => {
 });
 
 app.get('/api/distribution', async (req, res) => {
-  const pipeline = [
-    {
-      $project: {
-        hour: { $hour: "$checkinTime" },
+  const range = req.query.range || 'weekly';
+  const timezone = req.query.tz || 'Asia/Jakarta';
+
+  const now = new Date();
+  let start;
+
+  if (range === 'daily') {
+    start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  } else if (range === 'weekly') {
+    start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+  } else if (range === 'monthly') {
+    start = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+  } else if (range === 'yearly') {
+    start = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+  } else {
+    // default fallback
+    start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+  }
+
+
+  try {
+    const result = await Log.aggregate([
+      { $match: { checkinTime: { $gte: start } } },
+      {
+        $project: {
+          localHour: {
+            $hour: {
+              date: "$checkinTime",
+              timezone: timezone
+            }
+          }
+        }
       },
-    },
-    {
-      $group: {
-        _id: {
-          $switch: {
-            branches: [
-              { case: { $and: [{ $gte: ["$hour", 10] }, { $lt: ["$hour", 18] }] }, then: "10am - 6pm" },
-              { case: { $and: [{ $gte: ["$hour", 18] }, { $lt: ["$hour", 24] }] }, then: "6pm - 12am" },
-              { case: { $and: [{ $gte: ["$hour", 0] }, { $lt: ["$hour", 10] }] }, then: "12am - 10am" },
-            ],
-            default: "Other",
+      {
+        $group: {
+          _id: {
+            $switch: {
+              branches: [
+                { case: { $lt: ["$localHour", 8] }, then: "12am–8am" },
+                { case: { $lt: ["$localHour", 16] }, then: "8am–4pm" }
+              ],
+              default: "4pm–12am"
+            }
           },
-        },
-        count: { $sum: 1 },
-      },
-    },
-  ];
-  const data = await Log.aggregate(pipeline);
-  res.json(data);
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    res.json(result);
+  } catch (err) {
+    console.error("Error generating distribution:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
 });
+
+
 
 
 const PORT = 3000;

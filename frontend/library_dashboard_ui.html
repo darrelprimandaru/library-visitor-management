@@ -54,6 +54,7 @@
             <div class="col-md-4">
               <h5>Time Distribution</h5>
               <select class="form-select mb-2" id="timeRange">
+                <option>Daily</option>
                 <option>Weekly</option>
                 <option>Monthly</option>
                 <option>Yearly</option>
@@ -72,8 +73,8 @@
                   <th>Name</th>
                   <th>Purpose</th>
                   <th>Class</th>
-                  <th>Check In</th>
-                  <th>Check Out</th>
+                  <th>Check In Time</th>
+                  <th>Check Out Time</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -122,14 +123,23 @@
       const purposeInput = document.getElementById("purposeInput");
       const barcode = input.value.trim();
       const purpose = purposeInput.value.trim();
+
       if (!barcode) return;
+
       try {
         const res = await fetch(`${API_BASE}/api/checkin`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ barcode, purpose })
+          body: JSON.stringify({ barcode, purpose }),
         });
-        const data = await res.json();
+
+        let data;
+        try {
+          data = await res.json();
+        } catch (jsonErr) {
+          throw new Error("Invalid JSON response from server.");
+        }
+
         if (res.ok) {
           alert(`✅ Check-in successful for barcode: ${barcode}`);
           input.value = "";
@@ -138,13 +148,14 @@
           loadDailyChart();
           loadDonutChart();
         } else {
-          alert(`❌ ${data.message}`);
+          alert(`❌ ${data.message || 'Error during check-in.'}`);
         }
       } catch (err) {
-        alert("❌ Could not reach server.");
+        alert(`❌ Could not reach server: ${err.message}`);
         console.error(err);
       }
     }
+
 
     async function loadVisitorLogs() {
       try {
@@ -156,8 +167,24 @@
           const name = log.visitor.name || 'Unknown';
           const studentClass = log.visitor.class || '-';
           const purpose = log.purpose || '-';
-          const checkin = new Date(log.checkinTime).toLocaleTimeString();
-          const checkout = log.checkoutTime ? new Date(log.checkoutTime).toLocaleTimeString() : '-';
+          const checkin = new Date(log.checkinTime).toLocaleString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+          });
+
+          const checkout = log.checkoutTime
+            ? new Date(log.checkoutTime).toLocaleString(undefined, {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+              })
+            : '-';
+
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td>${name}</td>
@@ -209,23 +236,48 @@
 
     async function loadDonutChart() {
       try {
-        const res = await fetch(`${API_BASE}/api/distribution`);
+        const range = document.getElementById('timeRange').value.toLowerCase();
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone; // e.g. Asia/Jakarta
+
+        const res = await fetch(`${API_BASE}/api/distribution?range=${range}&tz=${encodeURIComponent(timezone)}`);
         const data = await res.json();
-        const labels = data.map(entry => entry._id);
-        const values = data.map(entry => entry.count);
+        const TIME_ORDER = ["12am–8am", "8am–4pm", "4pm–12am"];
+        const dataMap = Object.fromEntries(data.map(entry => [entry._id, entry.count]));
+        const labels = TIME_ORDER.filter(label => dataMap[label] !== undefined);
+        const values = labels.map(label => dataMap[label]);
+
         if (window.donutChart && typeof window.donutChart.destroy === "function") window.donutChart.destroy();
         window.donutChart = new Chart(document.getElementById("donutChart"), {
           type: "doughnut",
           data: {
             labels,
-            datasets: [{ data: values, backgroundColor: ["#ffc107", "#20c997", "#6f42c1"] }]
+            datasets: [{
+              data: values,
+              backgroundColor: labels.map(label => {
+                switch (label) {
+                  case "12am–8am": return "#ffc107";
+                  case "8am–4pm": return "#20c997";
+                  case "4pm–12am": return "#6f42c1";
+                  default: return "#adb5bd";
+                }
+              })
+            }]
           },
-          options: { responsive: true, plugins: { legend: { position: "bottom" } } }
+          options: {
+            responsive: true,
+            plugins: { legend: { position: "bottom" } }
+          }
         });
       } catch (err) {
         console.error("Error loading donut chart:", err);
       }
     }
+
+
+    document.getElementById('timeRange').addEventListener('change', () => {
+      loadDonutChart();
+    });
+
 
     document.getElementById("barcodeInput").addEventListener("keydown", function (e) {
       if (e.key === "Enter") handleBarcodeSubmit();
