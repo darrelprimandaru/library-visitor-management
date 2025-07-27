@@ -6,11 +6,9 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const studentRoutes = require('./routes/student');
-const vistorRoutes = require('./routes/visitor');
 const Student = require('./models/Student');
 const Visitor = require('./models/Visitor');
 const Log = require('./models/Log');
-
 const visitorRoutes = require('./routes/visitor');
 
 
@@ -30,6 +28,10 @@ app.post('/api/checkin', async (req, res) => {
   try {
     const { barcode, purpose } = req.body;
 
+    if (!/^\d{5}$/.test(barcode)) {
+      return res.status(400).json({ message: 'Barcode must be a number from 00000 to 99999.' });
+    }
+
     const student = await Student.findOne({ barcode });
     if (!student) {
       return res.status(404).json({ message: 'Student not found' });
@@ -47,6 +49,12 @@ app.post('/api/checkin', async (req, res) => {
         upsert: true,
       }
     );
+
+    // Prevent double check-in
+    const existingLog = await Log.findOne({ visitor: visitor._id, checkoutTime: null });
+    if (existingLog) {
+      return res.status(400).json({ message: 'Student is already checked in and has not checked out.' });
+    }
 
     const log = await Log.create({
       visitor: visitor._id,

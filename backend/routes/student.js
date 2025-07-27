@@ -7,7 +7,22 @@ router.post('/', async (req, res) => {
   try {
     const { barcode, name, class: studentClass } = req.body;
 
-    // ✅ Check for existing barcode
+    // ✅ Validate barcode format
+    if (!/^\d{5}$/.test(barcode)) {
+      return res.status(400).json({ error: "Barcode must be exactly 5 digits (00000 to 99999)." });
+    }
+
+    // ✅ Validate name (letters and spaces)
+    if (!/^[A-Za-z ]+$/.test(name)) {
+      return res.status(400).json({ error: "Name can only contain letters and spaces." });
+    }
+
+    // ✅ Validate class (1–12 with optional letters like A or B)
+    if (!/^(?:[1-9]|1[0-2])[a-zA-Z]{0,2}$/.test(studentClass)) {
+      return res.status(400).json({ error: "Class must be 1–12 followed by up to 2 letters (e.g. 10A, 12B)." });
+    }
+
+    // ✅ Check for duplicate barcode
     const existing = await Student.findOne({ barcode });
     if (existing) {
       return res.status(400).json({ error: "A student with this barcode already exists." });
@@ -17,13 +32,11 @@ router.post('/', async (req, res) => {
     await student.save();
     res.status(201).json(student);
   } catch (err) {
-  // Covers all versions of MongoDB/Mongoose
-  if (err.code === 11000 && err.message.includes('barcode')) {
-    return res.status(400).json({ error: "A student with this barcode already exists." });
+    if (err.code === 11000 && err.message.includes('barcode')) {
+      return res.status(400).json({ error: "A student with this barcode already exists." });
+    }
+    res.status(400).json({ error: err.message });
   }
-  res.status(400).json({ error: err.message });
-}
-
 });
 
 
@@ -58,5 +71,38 @@ router.delete('/:id', async (req, res) => {
     res.status(400).json({ error: err.message });
   }
 });
+
+// Update a student
+router.put('/:id', async (req, res) => {
+  try {
+    const { barcode, name, class: studentClass } = req.body;
+
+    // Validations
+    if (!/^\d{5}$/.test(barcode)) {
+      return res.status(400).json({ error: "Barcode must be 5 digits" });
+    }
+    if (!/^[A-Za-z ]+$/.test(name)) {
+      return res.status(400).json({ error: "Name must be letters and spaces only" });
+    }
+    if (!/^(?:[1-9]|1[0-2])[a-zA-Z]{0,2}$/.test(studentClass)) {
+      return res.status(400).json({ error: "Invalid class format" });
+    }
+
+    const updated = await Student.findByIdAndUpdate(req.params.id, {
+      barcode,
+      name,
+      class: studentClass
+    }, { new: true });
+
+    if (!updated) {
+      return res.status(404).json({ error: "Student not found" });
+    }
+
+    res.json(updated);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 
 module.exports = router;

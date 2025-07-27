@@ -6,4 +6,7 @@ const studentSchema = new mongoose.Schema({
   class: { type: String, required: true }
 });
 
-module.exports = mongoose.model('Student', studentSchema);
+studentSchema.index({ barcode: 1 }, { unique: true });
+
+module.exports = mongoose.models.Student || mongoose.model('Student', studentSchema);
+
