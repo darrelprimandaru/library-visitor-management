@@ -89,11 +89,17 @@
           <div class="mt-5">
             <div class="d-flex justify-content-between align-items-center">
               <h5>Visitor Log</h5>
-              <button class="btn btn-success btn-sm">Export</button>
+              <div id="logMultiControls" class="d-flex gap-2">
+                <button class="btn btn-outline-primary btn-sm" onclick="toggleLogMultiSelect(true)">Select</button>
+                <button class="btn btn-success btn-sm">Export</button>
+              </div>
             </div>
             <table class="table table-striped mt-3">
               <thead>
                 <tr>
+                  <th id="logCheckboxHeader" style="display: none;">
+                    <input type="checkbox" id="selectAllLogs" onchange="toggleAllLogs(this)">
+                  </th>
                   <th>Name</th>
                   <th>Purpose</th>
                   <th>Class</th>
@@ -123,13 +129,16 @@
 
           <h3>Student List</h3>
           <input type="text" id="studentSearch" placeholder="Search" style="margin-bottom: 32px; display: block;">
-          <button class="btn btn-danger btn-sm mb-2" onclick="deleteSelectedStudents()">Delete Selected</button>
-          <button class="btn btn-secondary btn-sm mb-2" onclick="loadStudents()">Refresh</button>
-        
+          <div id="studentMultiControls">
+            <button class="btn btn-outline-primary btn-sm mb-2" onclick="toggleStudentMultiSelect(true)">Select</button>
+          </div>
           <table class="table table-striped">
             <thead>
               <tr>
-                <th><input type="checkbox" id="selectAllStudents" onchange="toggleAllStudents(this)"></th>
+                <th id="studentCheckboxHeader" style="display: none;">
+                  <input type="checkbox" id="selectAllStudents" onchange="toggleAllStudents(this)">
+                </th>
+
                 <th>Barcode</th>
                 <th>Name</th>
                 <th>Class</th>
@@ -263,6 +272,9 @@
 
           const tr = document.createElement('tr');
           tr.innerHTML = `
+            <td style="display: none;" class="logCheckboxCell">
+              <input type="checkbox" class="visitorCheckbox" data-id="${log._id}">
+            </td>
             <td>${name}</td>
             <td>
               ${isEditing
@@ -286,6 +298,9 @@
             </td>
           `;
           tbody.appendChild(tr);
+          if (window.logMultiSelectMode) {
+            tr.querySelector(".logCheckboxCell").style.display = "";
+          }
         }
 
       } catch (err) {
@@ -335,6 +350,59 @@
         alert("Could not delete visitor log.");
       }
     }
+
+    function toggleAllLogs(source) {
+      const checkboxes = document.querySelectorAll('.visitorCheckbox');
+      checkboxes.forEach(cb => cb.checked = source.checked);
+    }
+
+    async function deleteSelectedLogs() {
+      const selected = [...document.querySelectorAll('.visitorCheckbox')]
+        .filter(cb => cb.checked)
+        .map(cb => cb.getAttribute('data-id'));
+
+      if (selected.length === 0) {
+        alert("Please select at least one log to delete.");
+        return;
+      }
+
+      if (!confirm(`Delete ${selected.length} visitor log(s)? This cannot be undone.`)) return;
+
+      for (const id of selected) {
+        try {
+          await fetch(`${API_BASE}/api/visitors/${id}`, { method: 'DELETE' });
+        } catch (err) {
+          console.error("Failed to delete visitor log:", err);
+        }
+      }
+
+      loadVisitorLogs(); // Refresh table
+    }
+
+    let logMultiSelectMode = false;
+
+    function toggleLogMultiSelect(enabled) {
+      logMultiSelectMode = enabled;
+      window.logMultiSelectMode = enabled;
+
+      document.getElementById("logCheckboxHeader").style.display = enabled ? "" : "none";
+
+      // Update control buttons
+      const controlDiv = document.getElementById("logMultiControls");
+      controlDiv.innerHTML = enabled
+        ? `
+          <button class="btn btn-danger btn-sm" onclick="deleteSelectedLogs()">Delete Selected</button>
+          <button class="btn btn-secondary btn-sm" onclick="toggleLogMultiSelect(false)">Cancel</button>
+          <button class="btn btn-success btn-sm">Export</button>
+        `
+        : `
+          <button class="btn btn-outline-primary btn-sm" onclick="toggleLogMultiSelect(true)">Select</button>
+          <button class="btn btn-success btn-sm">Export</button>
+        `;
+
+      loadVisitorLogs();
+    }
+
 
     function startEditVisitorLog(id) {
       editingLogIds.add(id);
@@ -551,7 +619,9 @@
           const isEditing = editingRowIds.has(student._id);
 
           row.innerHTML = `
-            <td><input type="checkbox" class="studentCheckbox" data-id="${student._id}"></td>
+            <td style="display: none;" class="studentCheckboxCell">
+              <input type="checkbox" class="studentCheckbox" data-id="${student._id}">
+            </td>
             <td style="padding: 8px 16px;">${isEditing ? 
               `<input class="form-control form-control-sm" value="${student.barcode}" disabled>` : 
               student.barcode}</td>
@@ -572,6 +642,9 @@
           `;
 
           tableBody.appendChild(row);
+          if (window.studentMultiSelectMode) {
+            row.querySelector(".studentCheckboxCell").style.display = "";
+          }
         });
 
         // ✅ Handle "no results" message
@@ -731,6 +804,28 @@
 
       loadStudents(); // Refresh
     }
+
+    let studentMultiSelectMode = false;
+
+    function toggleStudentMultiSelect(enabled) {
+      studentMultiSelectMode = enabled;
+      window.studentMultiSelectMode = enabled;
+
+      document.getElementById("studentCheckboxHeader").style.display = enabled ? "" : "none";
+
+      // Update control buttons
+      const controlDiv = document.getElementById("studentMultiControls");
+      controlDiv.innerHTML = enabled
+        ? `
+          <button class="btn btn-danger btn-sm mb-2" onclick="deleteSelectedStudents()">Delete Selected</button>
+          <button class="btn btn-secondary btn-sm mb-2" onclick="toggleStudentMultiSelect(false)">Cancel</button>
+        `
+        : `
+          <button class="btn btn-outline-primary btn-sm mb-2" onclick="toggleStudentMultiSelect(true)">Select</button>
+        `;
+
+      loadStudents();
+      }
 
   </script>
 </body>
