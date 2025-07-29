@@ -61,7 +61,7 @@
         <div id="dashboardSection" class="section">
           <h2>Welcome</h2>
           <div class="summary-box">
-            📊 Total visitors today: <strong id="todayVisitorCount">--</strong>
+            📊 Total visits today: <strong id="todayVisitorCount">--</strong>
           </div>
           <div class="d-flex flex-wrap gap-2 align-items-center mb-4">
             <input type="text" id="barcodeInput" class="form-control barcode-input" placeholder="Scan or type barcode" />
@@ -99,6 +99,7 @@
                   <th>Class</th>
                   <th>Check In Time</th>
                   <th>Check Out Time</th>
+                  <th>Duration</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -122,10 +123,13 @@
 
           <h3>Student List</h3>
           <input type="text" id="studentSearch" placeholder="Search" style="margin-bottom: 32px; display: block;">
-
+          <button class="btn btn-danger btn-sm mb-2" onclick="deleteSelectedStudents()">Delete Selected</button>
+          <button class="btn btn-secondary btn-sm mb-2" onclick="loadStudents()">Refresh</button>
+        
           <table class="table table-striped">
             <thead>
               <tr>
+                <th><input type="checkbox" id="selectAllStudents" onchange="toggleAllStudents(this)"></th>
                 <th>Barcode</th>
                 <th>Name</th>
                 <th>Class</th>
@@ -224,6 +228,7 @@
           const isEditing = editingLogIds.has(log._id);
           const name = log.visitor.name || 'Unknown';
           const studentClass = log.visitor.class || '-';
+
           const purpose = log.purpose || '-';
           const checkin = new Date(log.checkinTime).toLocaleString(undefined, {
             month: 'short',
@@ -243,6 +248,19 @@
               })
             : '-';
 
+          let duration = '-';
+          if (log.checkoutTime) {
+            const ms = new Date(log.checkoutTime) - new Date(log.checkinTime);
+            const mins = Math.floor(ms / 60000);
+
+            if (mins >= 60) {
+              const hrFloat = (mins / 60).toFixed(1);
+              duration = `${hrFloat} hr${hrFloat !== "1.0" ? "s" : ""}`;
+            } else {
+              duration = `${mins} min${mins !== 1 ? 's' : ''}`;
+            }
+          }
+
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td>${name}</td>
@@ -254,6 +272,7 @@
             <td>${studentClass}</td>
             <td>${checkin}</td>
             <td>${checkout}</td>
+            <td>${duration}</td> <!-- Already good, because duration is now HTML -->
             <td>
               ${isEditing
                 ? `<button class="btn btn-sm btn-success" onclick="saveVisitorLog('${log._id}', this)">Save</button>
@@ -379,17 +398,36 @@
     async function loadDonutChart() {
       try {
         const range = document.getElementById('timeRange').value.toLowerCase();
-        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone; // e.g. Asia/Jakarta
-
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
         const res = await fetch(`${API_BASE}/api/distribution?range=${range}&tz=${encodeURIComponent(timezone)}`);
         const data = await res.json();
+
         const TIME_ORDER = ["12am–8am", "8am–4pm", "4pm–12am"];
         const dataMap = Object.fromEntries(data.map(entry => [entry._id, entry.count]));
         const labels = TIME_ORDER.filter(label => dataMap[label] !== undefined);
         const values = labels.map(label => dataMap[label]);
 
-        if (window.donutChart && typeof window.donutChart.destroy === "function") window.donutChart.destroy();
-        window.donutChart = new Chart(document.getElementById("donutChart"), {
+        const canvas = document.getElementById("donutChart");
+        const ctx = canvas.getContext("2d");
+
+        // Destroy any previous chart instance
+        if (window.donutChart && typeof window.donutChart.destroy === "function") {
+          window.donutChart.destroy();
+        }
+
+        // If no visits, display fallback message
+        if (values.length === 0) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.font = "16px Arial";
+          ctx.fillStyle = "#999";
+          ctx.textAlign = "center";
+          ctx.fillText("No visits in this range.", canvas.width / 2, canvas.height / 2);
+          window.donutChart = null;
+          return;
+        }
+
+        // Render Chart.js donut chart
+        window.donutChart = new Chart(canvas, {
           type: "doughnut",
           data: {
             labels,
@@ -407,13 +445,17 @@
           },
           options: {
             responsive: true,
-            plugins: { legend: { position: "bottom" } }
+            plugins: {
+              legend: { position: "bottom" }
+            }
           }
         });
+
       } catch (err) {
         console.error("Error loading donut chart:", err);
       }
     }
+
 
 
     document.getElementById('timeRange').addEventListener('change', () => {
@@ -509,6 +551,7 @@
           const isEditing = editingRowIds.has(student._id);
 
           row.innerHTML = `
+            <td><input type="checkbox" class="studentCheckbox" data-id="${student._id}"></td>
             <td style="padding: 8px 16px;">${isEditing ? 
               `<input class="form-control form-control-sm" value="${student.barcode}" disabled>` : 
               student.barcode}</td>
@@ -660,6 +703,35 @@
         console.error("Failed to load logs:", err);
       }
     }
+
+    function toggleAllStudents(source) {
+      const checkboxes = document.querySelectorAll('.studentCheckbox');
+      checkboxes.forEach(cb => cb.checked = source.checked);
+    }
+
+    async function deleteSelectedStudents() {
+      const selected = [...document.querySelectorAll('.studentCheckbox')]
+        .filter(cb => cb.checked)
+        .map(cb => cb.getAttribute('data-id'));
+
+      if (selected.length === 0) {
+        alert("Please select at least one student to delete.");
+        return;
+      }
+
+      if (!confirm(`Delete ${selected.length} student(s)? This cannot be undone.`)) return;
+
+      for (const id of selected) {
+        try {
+          await fetch(`${API_BASE}/api/students/${id}`, { method: 'DELETE' });
+        } catch (err) {
+          console.error("Failed to delete student:", err);
+        }
+      }
+
+      loadStudents(); // Refresh
+    }
+
   </script>
 </body>
 </html>

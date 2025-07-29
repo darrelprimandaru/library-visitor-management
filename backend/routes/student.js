@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Student = require('../models/Student');
+const Visitor = require('../models/Visitor');
 
 // Add a new student
 router.post('/', async (req, res) => {
@@ -97,6 +98,12 @@ router.put('/:id', async (req, res) => {
     if (!updated) {
       return res.status(404).json({ error: "Student not found" });
     }
+
+    // 🔧 Also update the Visitor document if it exists
+    await Visitor.findOneAndUpdate(
+      { barcode },
+      { name, class: studentClass }
+    );
 
     res.json(updated);
   } catch (err) {

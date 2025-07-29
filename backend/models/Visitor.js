@@ -19,6 +19,7 @@ const visitorSchema = new mongoose.Schema({
     type: String,
     default: '-'
   }
+
 });
 
 module.exports = mongoose.models.Visitor || mongoose.model('Visitor', visitorSchema);

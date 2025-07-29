@@ -50,6 +50,7 @@ app.post('/api/checkin', async (req, res) => {
       }
     );
 
+
     // Prevent double check-in
     const existingLog = await Log.findOne({ visitor: visitor._id, checkoutTime: null });
     if (existingLog) {
