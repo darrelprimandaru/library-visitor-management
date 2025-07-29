@@ -80,7 +80,7 @@ app.post('/api/checkout/:logId', async (req, res) => {
 });
 
 app.get('/api/logs', async (req, res) => {
-  const logs = await Log.find().populate('visitor').sort({ checkinTime: -1 }).limit(50);
+  const logs = await Log.find().populate('visitor').sort({ checkinTime: -1 });
   res.json(logs);
 });
 

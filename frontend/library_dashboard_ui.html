@@ -123,22 +123,31 @@
         <!-- History Section -->
         <div id="historySection" class="section" style="display: none;">
           <h2>Visitor Log History</h2>
-          <div class="mb-3 d-flex align-items-center">
+          <div class="mb-3 d-flex align-items-center gap-2">
             <label for="historyDateFilter" class="form-label me-2 h5 mb-0">Filter by date:</label>
             <input type="date" id="historyDateFilter" class="form-control form-control-sm" style="width: 200px;">
             <button class="btn btn-sm btn-secondary ms-2" onclick="clearHistoryDateFilter()">Clear</button>
             <button class="btn btn-outline-success btn-sm ms-2" onclick="exportHistoryLogsCSV()">Export</button>
+            <button id="historySelectBtn" class="btn btn-outline-primary btn-sm">Select</button>
+            <button id="historyDeleteSelectedBtn" class="btn btn-danger btn-sm d-none">Delete Selected</button>
+
+            <button id="historyCancelSelectBtn" class="btn btn-outline-secondary btn-sm d-none">Cancel</button>
+            
 
           </div>
-          <table class="table table-striped mt-3">
+          <table class="table table-striped mt-3" id="historyTable">
             <thead>
               <tr>
+                <th style="display:none;" class="logCheckboxCell">
+                  <input type="checkbox" id="selectAllHistoryLogs" onchange="toggleAllHistoryLogs(this)">
+                </th>
                 <th>Name</th>
                 <th>Purpose</th>
                 <th>Class</th>
                 <th>Check In Time</th>
                 <th>Check Out Time</th>
                 <th>Duration</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="historyTableBody"></tbody>
@@ -277,7 +286,7 @@
       // 🔁 Fetch active students first to get valid barcodes
       const activeStudentsRes = await fetch(`${API_BASE}/api/students`);
       const activeStudents = await activeStudentsRes.json();
-      const activeBarcodes = new Set(activeStudents.map(s => s.barcode));
+      activeBarcodes = new Set(activeStudents.map(s => s.barcode));
 
       // 📥 Fetch all visitor logs
       const res = await fetch(`${API_BASE}/api/logs`);
@@ -291,6 +300,8 @@
       const todayDate = now.getDate();
 
       for (const log of logs) {
+        const isMulti = window.logMultiSelectMode;
+        const isEditing = editingLogIds.has(log._id);
         const logDate = new Date(log.checkinTime);
         const isToday =
           logDate.getFullYear() === todayYear &&
@@ -298,8 +309,6 @@
           logDate.getDate() === todayDate;
 
         if (!isToday) continue; // ⛔ Skip non-today logs
-
-        const isEditing = editingLogIds.has(log._id);
         const visitor = log.visitor;
 
         const isMissingStudent = !visitor || !activeBarcodes.has(visitor.barcode);
@@ -361,29 +370,47 @@
           <td>${checkout}</td>
           <td>${duration}</td>
           <td>
-            ${isEditing
-              ? `<button class="btn btn-sm btn-success" onclick="saveVisitorLog('${log._id}', this)">Save</button>
-                  <button class="btn btn-sm btn-secondary ms-1" onclick="cancelEditVisitorLog('${log._id}')">Cancel</button>`
-              : `${!log.checkoutTime
-                  ? `<button class="btn btn-sm btn-outline-secondary" onclick="handleCheckout('${log._id}')">Check Out</button>`
-                  : ''}
-                <button class="btn btn-sm btn-outline-primary ms-1" onclick="startEditVisitorLog('${log._id}')">Edit</button>
-                <button class="btn btn-sm btn-outline-danger ms-1" onclick="deleteVisitorLog('${log._id}')">Delete</button>`}
+            <div class="d-flex align-items-center gap-2">
+              <div class="d-flex gap-2">
+                ${!isMulti && !isEditing
+                  ? `<button class="btn btn-sm btn-outline-primary" onclick="startEditVisitorLog('${log._id}')">Edit</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteVisitorLog('${log._id}')">Delete</button>`
+                  : isEditing
+                    ? `<button class="btn btn-sm btn-success" onclick="saveVisitorLog('${log._id}', this)">Save</button>
+                      <button class="btn btn-sm btn-secondary" onclick="cancelEditVisitorLog('${log._id}')">Cancel</button>`
+                    : `<button class="btn btn-sm btn-outline-danger" onclick="deleteVisitorLog('${log._id}')">Delete</button>`}
+              </div>
+              ${!isMulti && !log.checkoutTime && !isEditing
+                ? `<button class="btn btn-sm btn-outline-secondary" onclick="handleCheckout('${log._id}')">Check Out</button>`
+                : ""}
+            </div>
+
           </td>
+
         `;
 
-        tbody.appendChild(tr);
-
         const checkbox = tr.querySelector(".visitorCheckbox");
-        checkbox.addEventListener("change", updateLogSelectedCount);
+        if (checkbox) {
+          checkbox.addEventListener("change", updateLogSelectedCount);
+        }
+
 
         if (window.logMultiSelectMode) {
           tr.querySelector(".logCheckboxCell").style.display = "";
         }
+
+        tbody.appendChild(tr);
       }
     } catch (err) {
       console.error('Error loading logs:', err);
     }
+  }
+
+  function toggleAllHistoryLogs(source) {
+    document.querySelectorAll('#historyTable .visitorCheckbox').forEach(cb => {
+      cb.checked = source.checked;
+    });
+    updateLogSelectedCount();
   }
 
   function convertLogsToCSV(logs) {
@@ -458,6 +485,8 @@
       const filterDate = filterDateStr ? new Date(filterDateStr) : null;
 
       for (const log of logs) {
+        const isMulti = !!window.historyMultiSelectMode;
+        const isEditing = editingLogIds.has(log._id);
         const checkinDate = new Date(log.checkinTime);
         const logDay = new Date(checkinDate);
         logDay.setHours(0, 0, 0, 0);
@@ -494,13 +523,55 @@
         }
 
         tr.innerHTML = `
+          <td class="logCheckboxCell" style="display: ${isMulti ? '' : 'none'};">
+            <input type="checkbox" class="visitorCheckbox" data-id="${log._id}">
+          </td>
           <td>${name}${isMissingStudent ? ' <span title="Student no longer exists" style="color:#dc3545;">⚠️</span>' : ''}</td>
-          <td>${purpose}</td>
+          <td>
+            ${editingLogIds.has(log._id)
+              ? `<input class="form-control form-control-sm" value="${purpose}" onkeydown="handleVisitorLogKey(event, '${log._id}', this)">`
+              : purpose}
+          </td>
           <td>${studentClass}</td>
           <td>${checkin}</td>
           <td>${checkout}</td>
           <td>${duration}</td>
+          <td>
+            ${isMulti
+              ? `
+                <div class="d-flex align-items-center gap-2">
+                  <button class="btn btn-sm btn-outline-danger" onclick="deleteVisitorLog('${log._id}')">Delete</button>
+                </div>
+              `
+              : isEditing
+                ? `
+                  <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-sm btn-success" onclick="saveVisitorLog('${log._id}', this)">Save</button>
+                    <button class="btn btn-sm btn-secondary" onclick="cancelEditVisitorLog('${log._id}')">Cancel</button>
+                  </div>
+                `
+                : `
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="d-flex gap-2">
+                      <button class="btn btn-sm btn-outline-primary btn-edit-log" onclick="startEditVisitorLog('${log._id}')">Edit</button>
+                      <button class="btn btn-sm btn-outline-danger" onclick="deleteVisitorLog('${log._id}')">Delete</button>
+                    </div>
+                    ${!log.checkoutTime
+                      ? `<button class="btn btn-sm btn-outline-secondary btn-checkout-log" onclick="handleCheckout('${log._id}')">Check Out</button>`
+                      : ""}
+                  </div>
+                `}
+          </td>
+
+
+
+
         `;
+
+        
+        const checkbox = tr.querySelector(".visitorCheckbox");
+        if (checkbox) checkbox.addEventListener("change", updateLogSelectedCount);
+
 
         tbody.appendChild(tr);
       }
@@ -535,12 +606,88 @@
       loadHistoryLogs();
     }
 
+    document.getElementById("historySelectBtn").addEventListener("click", () => {
+      window.historyMultiSelectMode = true;
+      document.querySelectorAll("#historyTable .logCheckboxCell").forEach(td => td.style.display = "");
+      document.getElementById("historySelectBtn").classList.add("d-none");
+      document.getElementById("historyDeleteSelectedBtn").classList.remove("d-none");
+      document.getElementById("historyCancelSelectBtn").classList.remove("d-none");
+
+      loadHistoryLogs();
+    });
+
+    document.getElementById("historyCancelSelectBtn").addEventListener("click", () => {
+      toggleHistoryMultiSelect(false);
+    });
+
+    document.getElementById("historyDeleteSelectedBtn").addEventListener("click", async () => {
+      const ids = [...document.querySelectorAll("#historyTable .visitorCheckbox:checked")].map(cb => cb.dataset.id);
+      if (ids.length === 0) return;
+      if (!confirm(`Delete ${ids.length} log(s)?`)) return;
+
+      for (const id of ids) {
+        await fetch(`${API_BASE}/api/visitors/${id}`, { method: "DELETE" });
+      }
+
+      toggleHistoryMultiSelect(false);
+    });
+
+    function toggleHistoryMultiSelect(enabled) {
+      window.historyMultiSelectMode = enabled;
+
+      // Show or hide checkbox column
+      document.querySelectorAll("#historyTable .logCheckboxCell").forEach(td => {
+        td.style.display = enabled ? "" : "none";
+      });
+
+      // Reset buttons
+      document.getElementById("historySelectBtn").classList.toggle("d-none", enabled);
+      document.getElementById("historyDeleteSelectedBtn").classList.toggle("d-none", !enabled);
+      document.getElementById("historyCancelSelectBtn").classList.toggle("d-none", !enabled);
+
+      // Uncheck all
+      document.getElementById("selectAllHistoryLogs").checked = false;
+      document.querySelectorAll("#historyTable .visitorCheckbox").forEach(cb => cb.checked = false);
+
+      // Clear count
+      updateLogSelectedCount();
+
+      // Reload table
+      setTimeout(() => loadHistoryLogs(), 0);
+    }
+
 
     function updateLogSelectedCount() {
-      const count = document.querySelectorAll(".visitorCheckbox:checked").length;
-      const counter = document.getElementById("logSelectedCount");
-      if (counter) counter.textContent = count;
+      const checkboxes = document.querySelectorAll(".visitorCheckbox:checked");
+      const visibleCheckboxes = [...checkboxes].filter(cb => cb.offsetParent !== null);
+      const count = visibleCheckboxes.length;
+
+      // Today tab
+      const todayDeleteBtn = document.querySelector("#logMultiControls .btn-danger");
+      if (todayDeleteBtn && window.logMultiSelectMode) {
+        todayDeleteBtn.innerHTML = `Delete Selected (${count})`;
+      }
+
+      // History tab
+      const historyBtn = document.getElementById("historyDeleteSelectedBtn");
+      if (historyBtn && window.historyMultiSelectMode) {
+        historyBtn.textContent = `Delete Selected (${count})`;
+      }
+
+      // Disable Edit/Check Out buttons during multi-select
+      const isMulti = window.logMultiSelectMode || window.historyMultiSelectMode;
+      document.querySelectorAll(".btn-edit-log, .btn-checkout-log").forEach(btn => {
+        btn.disabled = isMulti;
+      });
     }
+
+
+
+
+    document.getElementById("historyCancelSelectBtn").addEventListener("click", function () {
+      document.querySelectorAll(".visitorCheckbox").forEach(cb => cb.checked = false);
+      updateLogSelectedCount(); // refresh count
+    });
 
     function handleVisitorLogKey(e, id, input) {
       if (e.key === "Enter") {
@@ -559,6 +706,7 @@
         if (res.ok) {
           alert("✅ Checked out successfully");
           loadVisitorLogs();
+          loadHistoryLogs();
         }
       } catch (err) {
         console.error('Checkout error:', err);
@@ -578,7 +726,9 @@
         }
 
         alert("Visitor log deleted.");
-        loadVisitorLogs(); // ✅ make sure to call this one
+        loadVisitorLogs();
+        loadDonutChart();
+        loadDailyChart();
       } catch (err) {
         console.error("Error deleting visitor log:", err);
         alert("Could not delete visitor log.");
@@ -588,7 +738,10 @@
     function toggleAllLogs(source) {
       const checkboxes = document.querySelectorAll('.visitorCheckbox');
       checkboxes.forEach(cb => cb.checked = source.checked);
+
+      updateLogSelectedCount(); // ✅ Add this line to fix the count
     }
+
 
     async function deleteSelectedLogs() {
       const selected = [...document.querySelectorAll('.visitorCheckbox')]
@@ -610,8 +763,13 @@
         }
       }
 
-      loadVisitorLogs(); // Refresh table
+      // ✅ Properly reset multi-select mode
+      toggleLogMultiSelect(false);
+      loadDonutChart();
+      loadDailyChart();
     }
+
+
 
     let logMultiSelectMode = false;
 
@@ -620,6 +778,7 @@
       window.logMultiSelectMode = enabled;
 
       document.getElementById("logCheckboxHeader").style.display = enabled ? "" : "none";
+      document.getElementById("selectAllLogs").checked = false;
 
       // Update control buttons
       const controlDiv = document.getElementById("logMultiControls");
