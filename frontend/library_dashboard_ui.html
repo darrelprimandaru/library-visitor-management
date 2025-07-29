@@ -164,8 +164,20 @@
   <script>
     let editingRowIds = new Set();
     let editingLogIds = new Set();
+    let activeBarcodes = new Set();
+
 
     const API_BASE = "http://localhost:3000";
+
+    async function fetchActiveStudentBarcodes() {
+      try {
+        const res = await fetch(`${API_BASE}/api/students`);
+        const students = await res.json();
+        activeBarcodes = new Set(students.map(s => s.barcode));
+      } catch (err) {
+        console.error("Failed to load student barcodes", err);
+      }
+    }
 
     function toggleSidebar() {
       document.getElementById("sidebar").classList.toggle("hide-sidebar");
@@ -233,12 +245,23 @@
         const logs = await res.json();
         const tbody = document.getElementById('visitorTable');
         tbody.innerHTML = '';
+
         for (const log of logs) {
           const isEditing = editingLogIds.has(log._id);
-          const name = log.visitor.name || 'Unknown';
-          const studentClass = log.visitor.class || '-';
+          const visitor = log.visitor;
+
+          // ✅ New: check against current active student barcodes
+          const isMissingStudent = !visitor || !activeBarcodes.has(visitor.barcode);
+
+          const name = visitor?.name || 'Unknown';
+          const studentClass = isMissingStudent ? '-' : visitor.class;
+          const warningIcon = isMissingStudent
+            ? ' <span title="Student no longer exists" style="color:#dc3545;">⚠️</span>'
+            : '';
+          const nameWithIcon = name + warningIcon;
 
           const purpose = log.purpose || '-';
+
           const checkin = new Date(log.checkinTime).toLocaleString(undefined, {
             month: 'short',
             day: 'numeric',
@@ -261,7 +284,6 @@
           if (log.checkoutTime) {
             const ms = new Date(log.checkoutTime) - new Date(log.checkinTime);
             const mins = Math.floor(ms / 60000);
-
             if (mins >= 60) {
               const hrFloat = (mins / 60).toFixed(1);
               duration = `${hrFloat} hr${hrFloat !== "1.0" ? "s" : ""}`;
@@ -271,11 +293,18 @@
           }
 
           const tr = document.createElement('tr');
+
+          // ✅ Gray out deleted student rows
+          if (isMissingStudent) {
+            tr.style.opacity = 0.5;
+            tr.style.color = "#888";
+          }
+
           tr.innerHTML = `
             <td style="display: none;" class="logCheckboxCell">
               <input type="checkbox" class="visitorCheckbox" data-id="${log._id}">
             </td>
-            <td>${name}</td>
+            <td>${nameWithIcon}</td>
             <td>
               ${isEditing
                 ? `<input class="form-control form-control-sm" value="${purpose}" onkeydown="handleVisitorLogKey(event, '${log._id}', this)">`
@@ -284,7 +313,7 @@
             <td>${studentClass}</td>
             <td>${checkin}</td>
             <td>${checkout}</td>
-            <td>${duration}</td> <!-- Already good, because duration is now HTML -->
+            <td>${duration}</td>
             <td>
               ${isEditing
                 ? `<button class="btn btn-sm btn-success" onclick="saveVisitorLog('${log._id}', this)">Save</button>
@@ -297,7 +326,12 @@
                   <button class="btn btn-sm btn-outline-danger ms-1" onclick="deleteVisitorLog('${log._id}')">Delete</button>`}
             </td>
           `;
+
           tbody.appendChild(tr);
+
+          const checkbox = tr.querySelector(".visitorCheckbox");
+          checkbox.addEventListener("change", updateLogSelectedCount);
+
           if (window.logMultiSelectMode) {
             tr.querySelector(".logCheckboxCell").style.display = "";
           }
@@ -306,6 +340,14 @@
       } catch (err) {
         console.error('Error loading logs:', err);
       }
+    }
+
+
+
+    function updateLogSelectedCount() {
+      const count = document.querySelectorAll(".visitorCheckbox:checked").length;
+      const counter = document.getElementById("logSelectedCount");
+      if (counter) counter.textContent = count;
     }
 
     function handleVisitorLogKey(e, id, input) {
@@ -391,7 +433,7 @@
       const controlDiv = document.getElementById("logMultiControls");
       controlDiv.innerHTML = enabled
         ? `
-          <button class="btn btn-danger btn-sm" onclick="deleteSelectedLogs()">Delete Selected</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteSelectedLogs()">Delete Selected (<span id="logSelectedCount">0</span>)</button>
           <button class="btn btn-secondary btn-sm" onclick="toggleLogMultiSelect(false)">Cancel</button>
           <button class="btn btn-success btn-sm">Export</button>
         `
@@ -642,6 +684,10 @@
           `;
 
           tableBody.appendChild(row);
+
+          const checkbox = row.querySelector(".studentCheckbox");
+          checkbox.addEventListener("change", updateStudentSelectedCount);
+
           if (window.studentMultiSelectMode) {
             row.querySelector(".studentCheckboxCell").style.display = "";
           }
@@ -659,6 +705,11 @@
       }
     }
 
+    function updateStudentSelectedCount() {
+      const count = document.querySelectorAll(".studentCheckbox:checked").length;
+      const counter = document.getElementById("studentSelectedCount");
+      if (counter) counter.textContent = count;
+    }
 
     function handleStudentKey(e, id, input) {
       const row = input.closest("tr");
@@ -735,12 +786,12 @@
     document.getElementById("studentSearch").addEventListener("input", loadStudents);
 
 
-    document.addEventListener("DOMContentLoaded", () => {
+    document.addEventListener("DOMContentLoaded", async () => {
       showSection('dashboardSection');
-      loadVisitorLogs();
+      await fetchActiveStudentBarcodes();  // ⬅️ get the live barcodes first
+      loadVisitorLogs();                   // ⬅️ now load logs with that info
       loadDailyChart();
       loadDonutChart();
-      loadLogs();
     });
 
     async function loadLogs() {
@@ -817,7 +868,7 @@
       const controlDiv = document.getElementById("studentMultiControls");
       controlDiv.innerHTML = enabled
         ? `
-          <button class="btn btn-danger btn-sm mb-2" onclick="deleteSelectedStudents()">Delete Selected</button>
+          <button class="btn btn-danger btn-sm mb-2" onclick="deleteSelectedStudents()">Delete Selected (<span id="studentSelectedCount">0</span>)</button>
           <button class="btn btn-secondary btn-sm mb-2" onclick="toggleStudentMultiSelect(false)">Cancel</button>
         `
         : `
