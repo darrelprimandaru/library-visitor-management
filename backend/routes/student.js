@@ -40,7 +40,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-
 // Get student by barcode
 router.get('/:barcode', async (req, res) => {
   try {
@@ -62,7 +61,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-//Delete a student
+// Delete a student
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -78,29 +77,30 @@ router.put('/:id', async (req, res) => {
   try {
     const { barcode, name, class: studentClass } = req.body;
 
-    // Validations
+
+    // ✅ Validate inputs (same as in create)
     if (!/^\d{5}$/.test(barcode)) {
-      return res.status(400).json({ error: "Barcode must be 5 digits" });
+      return res.status(400).json({ error: "Barcode must be exactly 5 digits (00000 to 99999)." });
     }
     if (!/^[A-Za-z ]+$/.test(name)) {
-      return res.status(400).json({ error: "Name must be letters and spaces only" });
+      return res.status(400).json({ error: "Name can only contain letters and spaces." });
     }
     if (!/^(?:[1-9]|1[0-2])[a-zA-Z]{0,2}$/.test(studentClass)) {
-      return res.status(400).json({ error: "Invalid class format" });
+      return res.status(400).json({ error: "Class must be 1–12 followed by up to 2 letters (e.g. 10A, 12B)." });
     }
 
-    const updated = await Student.findByIdAndUpdate(req.params.id, {
-      barcode,
-      name,
-      class: studentClass
-    }, { new: true });
+    const updated = await Student.findByIdAndUpdate(
+      req.params.id,
+      { name, class: studentClass },  // intentionally exclude barcode here
+      { new: true }
+    );
 
     if (!updated) {
       return res.status(404).json({ error: "Student not found" });
     }
 
-    // 🔧 Also update the Visitor document if it exists
-    await Visitor.findOneAndUpdate(
+    // 🔧 Also update any visitor logs with the same barcode
+    await Visitor.updateMany(
       { barcode },
       { name, class: studentClass }
     );
@@ -110,6 +110,5 @@ router.put('/:id', async (req, res) => {
     res.status(400).json({ error: err.message });
   }
 });
-
 
 module.exports = router;

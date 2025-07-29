@@ -64,7 +64,15 @@
             📊 Total visits today: <strong id="todayVisitorCount">--</strong>
           </div>
           <div class="d-flex flex-wrap gap-2 align-items-center mb-4">
-            <input type="text" id="barcodeInput" class="form-control barcode-input" placeholder="Scan or type barcode" />
+            <input
+              type="text"
+              id="barcodeInput"
+              class="form-control w-auto"
+              maxlength="5"
+              placeholder="Scan or type barcode"
+              style="max-width: 200px"
+            />
+
             <input type="text" id="purposeInput" class="form-control barcode-input" placeholder="Purpose (optional)" />
             <button class="btn btn-primary" onclick="handleBarcodeSubmit()">Add</button>
           </div>
@@ -89,6 +97,11 @@
           <div class="mt-5">
             <div class="d-flex justify-content-between align-items-center">
               <h5>Visitor Log</h5>
+              <div class="mb-3 d-flex align-items-center">
+                <label for="logDateFilter" class="form-label me-2 mb-0 h5">Filter by date:</label>
+                <input type="date" id="logDateFilter" class="form-control form-control-sm" style="width: 200px;">
+                <button class="btn btn-sm btn-secondary ms-2" onclick="clearDateFilter()">Clear</button>
+              </div>
               <div id="logMultiControls" class="d-flex gap-2">
                 <button class="btn btn-outline-primary btn-sm" onclick="toggleLogMultiSelect(true)">Select</button>
                 <button class="btn btn-success btn-sm">Export</button>
@@ -245,8 +258,21 @@
         const logs = await res.json();
         const tbody = document.getElementById('visitorTable');
         tbody.innerHTML = '';
+        const filterDateStr = document.getElementById("logDateFilter").value;
+        const filterDate = filterDateStr ? new Date(filterDateStr) : null;
+
 
         for (const log of logs) {
+          if (filterDate) {
+            const logDate = new Date(log.checkinTime);
+            if (
+              logDate.getFullYear() !== filterDate.getFullYear() ||
+              logDate.getMonth() !== filterDate.getMonth() ||
+              logDate.getDate() !== filterDate.getDate()
+            ) {
+              continue;
+            }
+          }
           const isEditing = editingLogIds.has(log._id);
           const visitor = log.visitor;
 
@@ -458,7 +484,13 @@
 
     async function saveVisitorLog(id, btn) {
       const row = btn.closest("tr");
-      const purposeInput = row.querySelector("input");
+      const purposeInput = row.querySelector('td:nth-child(3) input');
+
+      if (!purposeInput) {
+        alert("❌ Could not find the purpose input field.");
+        return;
+      }
+
       const purpose = purposeInput.value.trim();
 
       try {
@@ -481,6 +513,7 @@
         alert("❌ Could not update log.");
       }
     }
+
 
 
 
@@ -750,11 +783,16 @@
 
     async function saveStudent(id, btn) {
       const row = btn.closest("tr");
-      const inputs = row.querySelectorAll("input");
-      const [barcodeInput, nameInput, classInput] = inputs;
+
+      const barcodeInput = row.cells[1].querySelector("input");
+      const barcodeText = barcodeInput ? barcodeInput.value.trim() : row.cells[1].innerText.trim();
+
+
+      const nameInput = row.cells[2].querySelector("input");
+      const classInput = row.cells[3].querySelector("input");
 
       const payload = {
-        barcode: barcodeInput.value.trim(),
+        barcode: barcodeText,
         name: nameInput.value.trim(),
         class: classInput.value.trim()
       };
@@ -783,6 +821,7 @@
     }
 
 
+
     document.getElementById("studentSearch").addEventListener("input", loadStudents);
 
 
@@ -792,7 +831,28 @@
       loadVisitorLogs();                   // ⬅️ now load logs with that info
       loadDailyChart();
       loadDonutChart();
+      document.getElementById("logDateFilter").addEventListener("change", () => {
+        loadVisitorLogs();
+      });
+      document.getElementById("logDateFilter").addEventListener("input", () => {
+        if (!document.getElementById("logDateFilter").value) {
+          loadVisitorLogs(); // Reload logs when date filter is cleared
+        }
+      }); 
     });
+
+      document.getElementById("barcodeInput").addEventListener("input", function () {
+        if (this.value.length > 5) {
+          this.value = this.value.slice(0, 5);
+        }
+      });
+
+
+    function clearDateFilter() {
+      document.getElementById("logDateFilter").value = "";
+      loadVisitorLogs();
+    }
+
 
     async function loadLogs() {
       try {
