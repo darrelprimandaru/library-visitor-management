@@ -662,7 +662,10 @@
         }, 3000);
 
         document.getElementById("studentForm").reset();
+        await fetchActiveStudentBarcodes();  // 👈 refresh the active barcodes
         loadStudents();
+        loadVisitorLogs();                   // 👈 re-render logs to remove gray
+
 
       } catch (err) {
         alert("❌ An unexpected error occurred.");
