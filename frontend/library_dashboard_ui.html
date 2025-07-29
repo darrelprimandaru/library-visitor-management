@@ -52,6 +52,9 @@
           <i class="bi bi-person-plus me-2"></i>
           <span class="menu-text">Students</span>
         </a>
+        <a href="#" onclick="showSection('historySection')">
+          <i class="bi bi-clock-history me-2"></i><span class="menu-text">History</span>
+        </a>
         <a href="#" onclick="showSection('reportSection')"><i class="bi bi-bar-chart me-2"></i><span class="menu-text">Reports</span></a>
       </div>
       <!-- Main content -->
@@ -84,27 +87,17 @@
               </div>
             </div>
             <div class="col-md-4">
-              <h5>Check In Time Distribution</h5>
-              <select class="form-select mb-2" id="timeRange">
-                <option>Daily</option>
-                <option>Weekly</option>
-                <option>Monthly</option>
-                <option>Yearly</option>
-              </select>
+              <h5 id="donutTitle"></h5>
               <canvas id="donutChart"></canvas>
             </div>
           </div>
           <div class="mt-5">
             <div class="d-flex justify-content-between align-items-center">
-              <h5>Visitor Log</h5>
-              <div class="mb-3 d-flex align-items-center">
-                <label for="logDateFilter" class="form-label me-2 mb-0 h5">Filter by date:</label>
-                <input type="date" id="logDateFilter" class="form-control form-control-sm" style="width: 200px;">
-                <button class="btn btn-sm btn-secondary ms-2" onclick="clearDateFilter()">Clear</button>
-              </div>
+              <h5>Today's Visits</h5>
               <div id="logMultiControls" class="d-flex gap-2">
                 <button class="btn btn-outline-primary btn-sm" onclick="toggleLogMultiSelect(true)">Select</button>
-                <button class="btn btn-success btn-sm">Export</button>
+                <button class="btn btn-outline-success btn-sm" onclick="exportTodayLogsCSV()">Export</button> 
+
               </div>
             </div>
             <table class="table table-striped mt-3">
@@ -125,6 +118,31 @@
               <tbody id="visitorTable"></tbody>
             </table>
           </div>
+        </div>
+
+        <!-- History Section -->
+        <div id="historySection" class="section" style="display: none;">
+          <h2>Visitor Log History</h2>
+          <div class="mb-3 d-flex align-items-center">
+            <label for="historyDateFilter" class="form-label me-2 h5 mb-0">Filter by date:</label>
+            <input type="date" id="historyDateFilter" class="form-control form-control-sm" style="width: 200px;">
+            <button class="btn btn-sm btn-secondary ms-2" onclick="clearHistoryDateFilter()">Clear</button>
+            <button class="btn btn-outline-success btn-sm ms-2" onclick="exportHistoryLogsCSV()">Export</button>
+
+          </div>
+          <table class="table table-striped mt-3">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Purpose</th>
+                <th>Class</th>
+                <th>Check In Time</th>
+                <th>Check Out Time</th>
+                <th>Duration</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody"></tbody>
+          </table>
         </div>
 
         <!-- Student Registration Section -->
@@ -201,7 +219,9 @@
       document.getElementById(id).style.display = "block";
 
       if (id === "dashboardSection") {
-        loadVisitorLogs(); // 👈 Reload logs every time "Today" is shown
+        loadVisitorLogs();
+      } else if (id === "historySection") {
+        loadHistoryLogs();
       }
     }
 
@@ -252,122 +272,268 @@
     }
 
 
-    async function loadVisitorLogs() {
-      try {
-        const res = await fetch(`${API_BASE}/api/logs`);
-        const logs = await res.json();
-        const tbody = document.getElementById('visitorTable');
-        tbody.innerHTML = '';
-        const filterDateStr = document.getElementById("logDateFilter").value;
-        const filterDate = filterDateStr ? new Date(filterDateStr) : null;
+   async function loadVisitorLogs() {
+    try {
+      // 🔁 Fetch active students first to get valid barcodes
+      const activeStudentsRes = await fetch(`${API_BASE}/api/students`);
+      const activeStudents = await activeStudentsRes.json();
+      const activeBarcodes = new Set(activeStudents.map(s => s.barcode));
 
+      // 📥 Fetch all visitor logs
+      const res = await fetch(`${API_BASE}/api/logs`);
+      const logs = await res.json();
+      const tbody = document.getElementById('visitorTable');
+      tbody.innerHTML = '';
 
-        for (const log of logs) {
-          if (filterDate) {
-            const logDate = new Date(log.checkinTime);
-            if (
-              logDate.getFullYear() !== filterDate.getFullYear() ||
-              logDate.getMonth() !== filterDate.getMonth() ||
-              logDate.getDate() !== filterDate.getDate()
-            ) {
-              continue;
-            }
-          }
-          const isEditing = editingLogIds.has(log._id);
-          const visitor = log.visitor;
+      const now = new Date();
+      const todayYear = now.getFullYear();
+      const todayMonth = now.getMonth();
+      const todayDate = now.getDate();
 
-          // ✅ New: check against current active student barcodes
-          const isMissingStudent = !visitor || !activeBarcodes.has(visitor.barcode);
+      for (const log of logs) {
+        const logDate = new Date(log.checkinTime);
+        const isToday =
+          logDate.getFullYear() === todayYear &&
+          logDate.getMonth() === todayMonth &&
+          logDate.getDate() === todayDate;
 
-          const name = visitor?.name || 'Unknown';
-          const studentClass = isMissingStudent ? '-' : visitor.class;
-          const warningIcon = isMissingStudent
-            ? ' <span title="Student no longer exists" style="color:#dc3545;">⚠️</span>'
-            : '';
-          const nameWithIcon = name + warningIcon;
+        if (!isToday) continue; // ⛔ Skip non-today logs
 
-          const purpose = log.purpose || '-';
+        const isEditing = editingLogIds.has(log._id);
+        const visitor = log.visitor;
 
-          const checkin = new Date(log.checkinTime).toLocaleString(undefined, {
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-          });
+        const isMissingStudent = !visitor || !activeBarcodes.has(visitor.barcode);
 
-          const checkout = log.checkoutTime
-            ? new Date(log.checkoutTime).toLocaleString(undefined, {
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true
-              })
-            : '-';
+        const name = visitor?.name || 'Unknown';
+        const studentClass = isMissingStudent ? '-' : visitor.class;
+        const warningIcon = isMissingStudent
+          ? ' <span title="Student no longer exists" style="color:#dc3545;">⚠️</span>'
+          : '';
+        const nameWithIcon = name + warningIcon;
 
-          let duration = '-';
-          if (log.checkoutTime) {
-            const ms = new Date(log.checkoutTime) - new Date(log.checkinTime);
-            const mins = Math.floor(ms / 60000);
-            if (mins >= 60) {
-              const hrFloat = (mins / 60).toFixed(1);
-              duration = `${hrFloat} hr${hrFloat !== "1.0" ? "s" : ""}`;
-            } else {
-              duration = `${mins} min${mins !== 1 ? 's' : ''}`;
-            }
-          }
+        const purpose = log.purpose || '-';
 
-          const tr = document.createElement('tr');
+        const checkin = new Date(log.checkinTime).toLocaleString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
 
-          // ✅ Gray out deleted student rows
-          if (isMissingStudent) {
-            tr.style.opacity = 0.5;
-            tr.style.color = "#888";
-          }
+        const checkout = log.checkoutTime
+          ? new Date(log.checkoutTime).toLocaleString(undefined, {
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true
+            })
+          : '-';
 
-          tr.innerHTML = `
-            <td style="display: none;" class="logCheckboxCell">
-              <input type="checkbox" class="visitorCheckbox" data-id="${log._id}">
-            </td>
-            <td>${nameWithIcon}</td>
-            <td>
-              ${isEditing
-                ? `<input class="form-control form-control-sm" value="${purpose}" onkeydown="handleVisitorLogKey(event, '${log._id}', this)">`
-                : purpose}
-            </td>
-            <td>${studentClass}</td>
-            <td>${checkin}</td>
-            <td>${checkout}</td>
-            <td>${duration}</td>
-            <td>
-              ${isEditing
-                ? `<button class="btn btn-sm btn-success" onclick="saveVisitorLog('${log._id}', this)">Save</button>
-                  <button class="btn btn-sm btn-secondary ms-1" onclick="cancelEditVisitorLog('${log._id}')">Cancel</button>`
-                : `${!log.checkoutTime
-                    ? `<button class="btn btn-sm btn-outline-secondary" onclick="handleCheckout('${log._id}')">Check Out</button>`
-                    : ''
-                  }
-                  <button class="btn btn-sm btn-outline-primary ms-1" onclick="startEditVisitorLog('${log._id}')">Edit</button>
-                  <button class="btn btn-sm btn-outline-danger ms-1" onclick="deleteVisitorLog('${log._id}')">Delete</button>`}
-            </td>
-          `;
-
-          tbody.appendChild(tr);
-
-          const checkbox = tr.querySelector(".visitorCheckbox");
-          checkbox.addEventListener("change", updateLogSelectedCount);
-
-          if (window.logMultiSelectMode) {
-            tr.querySelector(".logCheckboxCell").style.display = "";
-          }
+        let duration = '-';
+        if (log.checkoutTime) {
+          const ms = new Date(log.checkoutTime) - new Date(log.checkinTime);
+          const mins = Math.floor(ms / 60000);
+          duration = mins >= 60
+            ? `${(mins / 60).toFixed(1)} hr${mins >= 120 ? 's' : ''}`
+            : `${mins} min${mins !== 1 ? 's' : ''}`;
         }
 
-      } catch (err) {
-        console.error('Error loading logs:', err);
+        const tr = document.createElement('tr');
+        if (isMissingStudent) {
+          tr.style.opacity = 0.5;
+          tr.style.color = "#888";
+        }
+
+        tr.innerHTML = `
+          <td style="display: none;" class="logCheckboxCell">
+            <input type="checkbox" class="visitorCheckbox" data-id="${log._id}">
+          </td>
+          <td>${nameWithIcon}</td>
+          <td>
+            ${isEditing
+              ? `<input class="form-control form-control-sm" value="${purpose}" onkeydown="handleVisitorLogKey(event, '${log._id}', this)">`
+              : purpose}
+          </td>
+          <td>${studentClass}</td>
+          <td>${checkin}</td>
+          <td>${checkout}</td>
+          <td>${duration}</td>
+          <td>
+            ${isEditing
+              ? `<button class="btn btn-sm btn-success" onclick="saveVisitorLog('${log._id}', this)">Save</button>
+                  <button class="btn btn-sm btn-secondary ms-1" onclick="cancelEditVisitorLog('${log._id}')">Cancel</button>`
+              : `${!log.checkoutTime
+                  ? `<button class="btn btn-sm btn-outline-secondary" onclick="handleCheckout('${log._id}')">Check Out</button>`
+                  : ''}
+                <button class="btn btn-sm btn-outline-primary ms-1" onclick="startEditVisitorLog('${log._id}')">Edit</button>
+                <button class="btn btn-sm btn-outline-danger ms-1" onclick="deleteVisitorLog('${log._id}')">Delete</button>`}
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+
+        const checkbox = tr.querySelector(".visitorCheckbox");
+        checkbox.addEventListener("change", updateLogSelectedCount);
+
+        if (window.logMultiSelectMode) {
+          tr.querySelector(".logCheckboxCell").style.display = "";
+        }
       }
+    } catch (err) {
+      console.error('Error loading logs:', err);
+    }
+  }
+
+  function convertLogsToCSV(logs) {
+    const header = ['Name', 'Class', 'Purpose', 'Check-in Time', 'Check-out Time', 'Duration'];
+    const rows = logs.map(log => {
+      const visitor = log.visitor || {};
+      const name = visitor.name || 'Unknown';
+      const studentClass = visitor.class || '-';
+      const purpose = log.purpose || '-';
+      
+      const checkin = new Date(log.checkinTime).toLocaleString();
+      const checkout = log.checkoutTime ? new Date(log.checkoutTime).toLocaleString() : '-';
+
+      let duration = '-';
+      if (log.checkoutTime) {
+        const ms = new Date(log.checkoutTime) - new Date(log.checkinTime);
+        const mins = Math.floor(ms / 60000);
+        duration = mins >= 60
+          ? `${(mins / 60).toFixed(1)} hr${mins >= 120 ? 's' : ''}`
+          : `${mins} min${mins !== 1 ? 's' : ''}`;
+      }
+
+      return [name, studentClass, purpose, checkin, checkout, duration];
+    });
+
+    const csv = [header, ...rows].map(row => row.join(",")).join("\n");
+    return csv;
+  }
+
+  function downloadCSV(content, filename) {
+    const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  async function exportTodayLogsCSV() {
+    const res = await fetch(`${API_BASE}/api/logs`);
+    const logs = await res.json();
+
+    const now = new Date();
+    const todayLogs = logs.filter(log => {
+      const logDate = new Date(log.checkinTime);
+      return (
+        logDate.getFullYear() === now.getFullYear() &&
+        logDate.getMonth() === now.getMonth() &&
+        logDate.getDate() === now.getDate()
+      );
+    });
+
+    const csv = convertLogsToCSV(todayLogs);
+    downloadCSV(csv, `todays_visitor_logs_${new Date().toISOString().slice(0, 10)}.csv`);
+  }
+
+
+  async function loadHistoryLogs() {
+    try {
+      // ⬅️ Get active barcodes first
+      const studentRes = await fetch(`${API_BASE}/api/students`);
+      const students = await studentRes.json();
+      const activeBarcodes = new Set(students.map(s => s.barcode));
+
+      const res = await fetch(`${API_BASE}/api/logs`);
+      const logs = await res.json();
+      const tbody = document.getElementById('historyTableBody');
+      tbody.innerHTML = '';
+
+      const filterDateStr = document.getElementById("historyDateFilter").value;
+      const filterDate = filterDateStr ? new Date(filterDateStr) : null;
+
+      for (const log of logs) {
+        const checkinDate = new Date(log.checkinTime);
+        const logDay = new Date(checkinDate);
+        logDay.setHours(0, 0, 0, 0);
+
+        // 🧹 Filter by selected date if applicable
+        if (filterDate) {
+          const fDate = new Date(filterDate);
+          fDate.setHours(0, 0, 0, 0);
+          if (logDay.getTime() !== fDate.getTime()) continue;
+        }
+
+        const visitor = log.visitor || {};
+        const barcode = visitor.barcode || null;
+        const isMissingStudent = !barcode || !activeBarcodes.has(barcode);
+
+        const name = visitor.name || 'Unknown';
+        const studentClass = visitor.class || '-';
+        const purpose = log.purpose || '-';
+
+        const checkin = new Date(log.checkinTime).toLocaleString();
+        const checkout = log.checkoutTime ? new Date(log.checkoutTime).toLocaleString() : '-';
+
+        let duration = '-';
+        if (log.checkoutTime) {
+          const ms = new Date(log.checkoutTime) - new Date(log.checkinTime);
+          const mins = Math.floor(ms / 60000);
+          duration = mins >= 60 ? `${(mins / 60).toFixed(1)} hrs` : `${mins} mins`;
+        }
+
+        const tr = document.createElement('tr');
+        if (isMissingStudent) {
+          tr.style.opacity = 0.5;
+          tr.style.color = "#888";
+        }
+
+        tr.innerHTML = `
+          <td>${name}${isMissingStudent ? ' <span title="Student no longer exists" style="color:#dc3545;">⚠️</span>' : ''}</td>
+          <td>${purpose}</td>
+          <td>${studentClass}</td>
+          <td>${checkin}</td>
+          <td>${checkout}</td>
+          <td>${duration}</td>
+        `;
+
+        tbody.appendChild(tr);
+      }
+
+    } catch (err) {
+      console.error("Failed to load history logs:", err);
+    }
+  }
+
+    async function exportHistoryLogsCSV() {
+      const res = await fetch(`${API_BASE}/api/logs`);
+      const logs = await res.json();
+
+      const now = new Date();
+      const historyLogs = logs.filter(log => {
+        const logDate = new Date(log.checkinTime);
+        return !(
+          logDate.getFullYear() === now.getFullYear() &&
+          logDate.getMonth() === now.getMonth() &&
+          logDate.getDate() === now.getDate()
+        );
+      });
+
+      const csv = convertLogsToCSV(historyLogs);
+      downloadCSV(csv, `history_visitor_logs_${new Date().toISOString().slice(0, 10)}.csv`);
     }
 
+    document.getElementById("historyDateFilter").addEventListener("change", loadHistoryLogs);
+
+    function clearHistoryDateFilter() {
+      document.getElementById("historyDateFilter").value = "";
+      loadHistoryLogs();
+    }
 
 
     function updateLogSelectedCount() {
@@ -538,9 +704,19 @@
       }
     }
 
+    function updateDonutTitle() {
+      const today = new Date();
+      const options = { year: 'numeric', month: 'long', day: 'numeric' };
+      const dateStr = today.toLocaleDateString(undefined, options);
+      document.getElementById("donutTitle").innerText = `Time Distribution: ${dateStr}`;
+    }
+
+
     async function loadDonutChart() {
+      updateDonutTitle();
+      
       try {
-        const range = document.getElementById('timeRange').value.toLowerCase();
+        const range = 'daily';
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
         const res = await fetch(`${API_BASE}/api/distribution?range=${range}&tz=${encodeURIComponent(timezone)}`);
         const data = await res.json();
@@ -598,12 +774,6 @@
         console.error("Error loading donut chart:", err);
       }
     }
-
-
-
-    document.getElementById('timeRange').addEventListener('change', () => {
-      loadDonutChart();
-    });
 
 
     document.getElementById("barcodeInput").addEventListener("keydown", function (e) {
@@ -834,14 +1004,6 @@
       loadVisitorLogs();                   // ⬅️ now load logs with that info
       loadDailyChart();
       loadDonutChart();
-      document.getElementById("logDateFilter").addEventListener("change", () => {
-        loadVisitorLogs();
-      });
-      document.getElementById("logDateFilter").addEventListener("input", () => {
-        if (!document.getElementById("logDateFilter").value) {
-          loadVisitorLogs(); // Reload logs when date filter is cleared
-        }
-      }); 
     });
 
       document.getElementById("barcodeInput").addEventListener("input", function () {
