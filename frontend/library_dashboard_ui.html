@@ -60,7 +60,7 @@
       <!-- Main content -->
       <div class="col-md-10 p-4">
 
-        <!-- Dashboard Section -->
+        <!-- Dashboard/Today Section -->
         <div id="dashboardSection" class="section">
           <h2>Welcome</h2>
           <div class="summary-box">
@@ -81,29 +81,26 @@
           </div>
           <div class="row">
             <div class="col-md-8">
-              <h5>Daily Snapshot (~7 Days)</h5>
+              <h4>Daily Snapshot (~7 Days)</h4>
               <div class="chart-container">
                 <canvas id="dailyChart"></canvas>
               </div>
             </div>
             <div class="col-md-4">
-              <h5 id="donutTitle"></h5>
+              <h4 id="donutTitle" class="text-center"></h4> 
               <canvas id="donutChart"></canvas>
             </div>
           </div>
           <div class="mt-5">
-            <div class="d-flex justify-content-between align-items-center">
-              <h5>Today's Visits</h5>
-              <div id="logMultiControls" class="d-flex gap-2">
-                <button class="btn btn-outline-primary btn-sm" onclick="toggleLogMultiSelect(true)">Select</button>
-                <button class="btn btn-outline-success btn-sm" onclick="exportTodayLogsCSV()">Export</button> 
-
-              </div>
+            <h4 class="mb-3">Today's Visits</h4>
+            <div id="logMultiControls" class="mb-3 d-flex align-items-center gap-2">
+              <button class="btn btn-primary btn-sm" onclick="toggleLogMultiSelect(true)">Select</button>
+              <button class="btn btn-success btn-sm" onclick="exportTodayLogsCSV()">Export</button> 
             </div>
             <table class="table table-striped mt-3">
               <thead>
                 <tr>
-                  <th id="logCheckboxHeader" style="display: none;">
+                  <th id="logCheckboxHeader" class="logCheckboxCell" style="display: none;">
                     <input type="checkbox" id="selectAllLogs" onchange="toggleAllLogs(this)">
                   </th>
                   <th>Name</th>
@@ -123,18 +120,36 @@
         <!-- History Section -->
         <div id="historySection" class="section" style="display: none;">
           <h2>Visitor Log History</h2>
-          <div class="mb-3 d-flex align-items-center gap-2">
+
+          <!-- Time Distribution chart at the top -->
+          <div class="mb-4" style="max-width: 300px;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h5 class="mb-0">Time Distribution</h5>
+              <select id="historyDonutRange" class="form-select form-select-sm w-auto ms-2">
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            </div>
+            <canvas id="historyDonutChart" height="200"></canvas>
+          </div>
+
+          <!-- Filter by date -->
+          <div class="mb-3 d-flex align-items-center gap-2 flex-wrap">
             <label for="historyDateFilter" class="form-label me-2 h5 mb-0">Filter by date:</label>
             <input type="date" id="historyDateFilter" class="form-control form-control-sm" style="width: 200px;">
-            <button class="btn btn-sm btn-secondary ms-2" onclick="clearHistoryDateFilter()">Clear</button>
-            <button class="btn btn-outline-success btn-sm ms-2" onclick="exportHistoryLogsCSV()">Export</button>
-            <button id="historySelectBtn" class="btn btn-outline-primary btn-sm">Select</button>
-            <button id="historyDeleteSelectedBtn" class="btn btn-danger btn-sm d-none">Delete Selected</button>
-
-            <button id="historyCancelSelectBtn" class="btn btn-outline-secondary btn-sm d-none">Cancel</button>
-            
-
+            <button class="btn btn-sm btn-secondary" onclick="clearHistoryDateFilter()">Clear</button>
           </div>
+
+          <!-- Multi-select buttons -->
+          <div class="mb-3 d-flex align-items-center gap-2" id="historyMultiControls">
+            <button id="historySelectBtn" class="btn btn-primary btn-sm">Select</button>
+            <button id="historyDeleteSelectedBtn" class="btn btn-danger btn-sm d-none">Delete Selected</button>
+            <button id="historyCancelSelectBtn" class="btn btn-outline-secondary btn-sm d-none">Cancel</button>
+            <button class="btn btn-success btn-sm" onclick="exportHistoryLogsCSV()">Export</button>
+          </div>
+
+          <!-- Visitor log table -->
           <table class="table table-striped mt-3" id="historyTable">
             <thead>
               <tr>
@@ -154,6 +169,7 @@
           </table>
         </div>
 
+
         <!-- Student Registration Section -->
         <div id="studentSection" class="section" style="display: none;">
           <h2>Register New Student</h2>
@@ -169,13 +185,15 @@
 
           <h3>Student List</h3>
           <input type="text" id="studentSearch" placeholder="Search" style="margin-bottom: 32px; display: block;">
-          <div id="studentMultiControls">
-            <button class="btn btn-outline-primary btn-sm mb-2" onclick="toggleStudentMultiSelect(true)">Select</button>
+          <div id="studentMultiControls" class="mb-3 d-flex align-items-center gap-2">
+            <button class="btn btn-primary btn-sm" onclick="toggleStudentMultiSelect(true)">Select</button>
+            <button class="btn btn-success btn-sm" onclick="exportStudentListCSV()">Export</button>
           </div>
-          <table class="table table-striped">
+
+          <table class="table table-striped" id="studentTable">
             <thead>
               <tr>
-                <th id="studentCheckboxHeader" style="display: none;">
+                <th class="studentCheckboxCell" style="display: none;" id="studentCheckboxHeader">
                   <input type="checkbox" id="selectAllStudents" onchange="toggleAllStudents(this)">
                 </th>
 
@@ -231,8 +249,10 @@
         loadVisitorLogs();
       } else if (id === "historySection") {
         loadHistoryLogs();
+        loadHistoryDonutChart(); // ✅ Add this line to load the chart
       }
     }
+
 
 
     async function handleBarcodeSubmit() {
@@ -356,7 +376,7 @@
         }
 
         tr.innerHTML = `
-          <td style="display: none;" class="logCheckboxCell">
+          <td class="logCheckboxCell" style="display: ${isMulti ? '' : 'none'};">
             <input type="checkbox" class="visitorCheckbox" data-id="${log._id}">
           </td>
           <td>${nameWithIcon}</td>
@@ -392,11 +412,6 @@
         const checkbox = tr.querySelector(".visitorCheckbox");
         if (checkbox) {
           checkbox.addEventListener("change", updateLogSelectedCount);
-        }
-
-
-        if (window.logMultiSelectMode) {
-          tr.querySelector(".logCheckboxCell").style.display = "";
         }
 
         tbody.appendChild(tr);
@@ -468,6 +483,31 @@
     downloadCSV(csv, `todays_visitor_logs_${new Date().toISOString().slice(0, 10)}.csv`);
   }
 
+  function exportStudentListCSV() {
+    const rows = [];
+    const table = document.getElementById("studentTable");
+    const headers = Array.from(table.querySelectorAll("thead th"))
+      .filter(th => th.textContent.trim() !== "Actions") // skip "Actions" column
+      .map(th => th.textContent.trim());
+    rows.push(headers.join(","));
+
+    table.querySelectorAll("tbody tr").forEach(tr => {
+      const cells = Array.from(tr.querySelectorAll("td"))
+        .slice(0, headers.length) // match number of data columns
+        .map(td => `"${td.textContent.trim().replace(/"/g, '""')}"`);
+      rows.push(cells.join(","));
+    });
+
+    const csvContent = rows.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "student_list.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
 
   async function loadHistoryLogs() {
     try {
@@ -576,6 +616,10 @@
         tbody.appendChild(tr);
       }
 
+      // ✅ Ensure all checkboxes are visually and logically unchecked on load
+      document.getElementById("selectAllHistoryLogs").checked = false;
+      updateLogSelectedCount();
+
     } catch (err) {
       console.error("Failed to load history logs:", err);
     }
@@ -645,16 +689,19 @@
       document.getElementById("historyDeleteSelectedBtn").classList.toggle("d-none", !enabled);
       document.getElementById("historyCancelSelectBtn").classList.toggle("d-none", !enabled);
 
-      // Uncheck all
+      // Uncheck master checkbox now
       document.getElementById("selectAllHistoryLogs").checked = false;
-      document.querySelectorAll("#historyTable .visitorCheckbox").forEach(cb => cb.checked = false);
 
-      // Clear count
-      updateLogSelectedCount();
+      // Load table
+      loadHistoryLogs();
 
-      // Reload table
-      setTimeout(() => loadHistoryLogs(), 0);
+      // Delay unchecking of individual checkboxes until after rows are inserted
+      setTimeout(() => {
+        document.querySelectorAll("#historyTable .visitorCheckbox").forEach(cb => cb.checked = false);
+        updateLogSelectedCount();
+      }, 50);
     }
+
 
 
     function updateLogSelectedCount() {
@@ -780,21 +827,21 @@
       document.getElementById("logCheckboxHeader").style.display = enabled ? "" : "none";
       document.getElementById("selectAllLogs").checked = false;
 
-      // Update control buttons
       const controlDiv = document.getElementById("logMultiControls");
       controlDiv.innerHTML = enabled
         ? `
           <button class="btn btn-danger btn-sm" onclick="deleteSelectedLogs()">Delete Selected (<span id="logSelectedCount">0</span>)</button>
           <button class="btn btn-secondary btn-sm" onclick="toggleLogMultiSelect(false)">Cancel</button>
-          <button class="btn btn-success btn-sm">Export</button>
+          <button class="btn btn-success btn-sm" onclick="exportTodayLogsCSV()">Export</button>
         `
         : `
-          <button class="btn btn-outline-primary btn-sm" onclick="toggleLogMultiSelect(true)">Select</button>
-          <button class="btn btn-success btn-sm">Export</button>
+          <button class="btn btn-primary btn-sm" onclick="toggleLogMultiSelect(true)">Select</button>
+          <button class="btn btn-success btn-sm" onclick="exportTodayLogsCSV()">Export</button>
         `;
 
-      loadVisitorLogs();
+      loadVisitorLogs(); // this redraws the table with checkboxes visible/hidden
     }
+
 
 
     function startEditVisitorLog(id) {
@@ -934,6 +981,64 @@
       }
     }
 
+    async function loadHistoryDonutChart() {
+      const range = document.getElementById("historyDonutRange").value;
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/distribution?range=${range}&tz=${encodeURIComponent(timezone)}`);
+        const data = await res.json();
+
+        const TIME_ORDER = ["12am–8am", "8am–4pm", "4pm–12am"];
+        const dataMap = Object.fromEntries(data.map(entry => [entry._id, entry.count]));
+        const labels = TIME_ORDER.filter(label => dataMap[label] !== undefined);
+        const values = labels.map(label => dataMap[label]);
+
+        const canvas = document.getElementById("historyDonutChart");
+        const ctx = canvas.getContext("2d");
+
+        if (window.historyDonutChart && typeof window.historyDonutChart.destroy === "function") {
+          window.historyDonutChart.destroy();
+        }
+
+        if (values.length === 0) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.font = "16px Arial";
+          ctx.fillStyle = "#999";
+          ctx.textAlign = "center";
+          ctx.fillText("No data in this range.", canvas.width / 2, canvas.height / 2);
+          window.historyDonutChart = null;
+          return;
+        }
+
+        window.historyDonutChart = new Chart(ctx, {
+          type: "doughnut",
+          data: {
+            labels,
+            datasets: [{
+              data: values,
+              backgroundColor: labels.map(label => {
+                switch (label) {
+                  case "12am–8am": return "#ffc107";
+                  case "8am–4pm": return "#20c997";
+                  case "4pm–12am": return "#6f42c1";
+                  default: return "#adb5bd";
+                }
+              })
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { position: "bottom" }
+            }
+          }
+        });
+      } catch (err) {
+        console.error("Failed to load history donut chart:", err);
+      }
+    }
+
 
     document.getElementById("barcodeInput").addEventListener("keydown", function (e) {
       if (e.key === "Enter") handleBarcodeSubmit();
@@ -1005,6 +1110,9 @@
 
     
     async function loadStudents() {
+      const counter = document.getElementById("studentSelectedCount");
+      if (counter) counter.textContent = "0";
+      
       try {
         const res = await fetch(`${API_BASE}/api/students`);
         const data = await res.json();
@@ -1043,19 +1151,19 @@
                 ? `<button class="btn btn-sm btn-success" onclick="saveStudent('${student._id}', this)">Save</button>
                   <button class="btn btn-sm btn-secondary ms-1" onclick="cancelEdit('${student._id}')">Cancel</button>`
                 : `<button class="btn btn-sm btn-outline-primary" onclick="startEdit('${student._id}')">Edit</button>
-                  <button class="btn btn-sm btn-outline-danger ms-1" onclick="deleteStudent('${student._id}')">Delete</button>`
-              }
+                  <button class="btn btn-sm btn-outline-danger ms-1" onclick="deleteStudent('${student._id}')">Delete</button>`}
             </td>
           `;
 
           tableBody.appendChild(row);
 
           const checkbox = row.querySelector(".studentCheckbox");
-          checkbox.addEventListener("change", updateStudentSelectedCount);
-
-          if (window.studentMultiSelectMode) {
-            row.querySelector(".studentCheckboxCell").style.display = "";
+          if (checkbox) {
+            checkbox.addEventListener("change", updateStudentSelectedCount);
           }
+
+          const checkboxCell = row.querySelector(".studentCheckboxCell");
+          checkboxCell.style.display = window.studentMultiSelectMode ? "" : "none";
         });
 
         // ✅ Handle "no results" message
@@ -1165,11 +1273,14 @@
       loadDonutChart();
     });
 
-      document.getElementById("barcodeInput").addEventListener("input", function () {
-        if (this.value.length > 5) {
-          this.value = this.value.slice(0, 5);
-        }
-      });
+    document.getElementById("barcodeInput").addEventListener("input", function () {
+      if (this.value.length > 5) {
+        this.value = this.value.slice(0, 5);
+      }
+    });
+
+    document.getElementById("historyDonutRange").addEventListener("change", loadHistoryDonutChart);
+
 
 
     function clearDateFilter() {
@@ -1215,6 +1326,7 @@
     function toggleAllStudents(source) {
       const checkboxes = document.querySelectorAll('.studentCheckbox');
       checkboxes.forEach(cb => cb.checked = source.checked);
+      updateStudentSelectedCount();
     }
 
     async function deleteSelectedStudents() {
@@ -1246,7 +1358,18 @@
       studentMultiSelectMode = enabled;
       window.studentMultiSelectMode = enabled;
 
+      // Toggle the checkbox header
       document.getElementById("studentCheckboxHeader").style.display = enabled ? "" : "none";
+
+      // Toggle checkbox cells in rows
+      const checkboxes = document.querySelectorAll(".studentCheckboxCell");
+      checkboxes.forEach(cb => cb.style.display = enabled ? "" : "none");
+
+      // Reset "select all" checkbox and clear count
+      const selectAll = document.getElementById("selectAllStudents");
+      if (selectAll) selectAll.checked = false;
+
+      updateStudentSelectedCount();
 
       // Update control buttons
       const controlDiv = document.getElementById("studentMultiControls");
@@ -1254,13 +1377,18 @@
         ? `
           <button class="btn btn-danger btn-sm mb-2" onclick="deleteSelectedStudents()">Delete Selected (<span id="studentSelectedCount">0</span>)</button>
           <button class="btn btn-secondary btn-sm mb-2" onclick="toggleStudentMultiSelect(false)">Cancel</button>
+          <button class="btn btn-success btn-sm mb-2" onclick="exportStudentListCSV()">Export</button>
         `
         : `
-          <button class="btn btn-outline-primary btn-sm mb-2" onclick="toggleStudentMultiSelect(true)">Select</button>
+          <button class="btn btn-primary btn-sm mb-2" onclick="toggleStudentMultiSelect(true)">Select</button>
+          <button class="btn btn-success btn-sm mb-2" onclick="exportStudentListCSV()">Export</button>
         `;
 
+      // Refresh table rows
       loadStudents();
-      }
+    }
+
+
 
   </script>
 </body>
