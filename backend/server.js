@@ -1,5 +1,16 @@
 const fs = require('fs');
 
+require('dotenv').config(); // Load .env
+const cors = require('cors');
+const jwt = require('jsonwebtoken');
+
+app.use(cors());
+app.use(express.json()); // In case it's missing
+
+const authRoutes = require('./routes/auth');
+app.use('/api', authRoutes);
+
+
 console.log('Available files in ./routes:', fs.readdirSync('./routes'));
 
 const express = require('express');
