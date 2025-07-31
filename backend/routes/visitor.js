@@ -3,10 +3,11 @@ const router = express.Router();
 const Visitor = require('../models/Visitor'); // You also need Log for deletion
 const Log = require('../models/Log');
 const Student = require('../models/Student');
+const verifyToken = require('./authMiddleware');
 
 
 // Delete a visitor log by ID
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', verifyToken, async (req, res) => {
   try {
     const deleted = await Log.findByIdAndDelete(req.params.id);
     if (!deleted) {
@@ -20,7 +21,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 //Edit visitor log (purpose)
-router.put('/:id', async (req, res) => {
+router.put('/:id', verifyToken, async (req, res) => {
   try {
     const { purpose } = req.body;
 
@@ -142,7 +143,7 @@ const csv = require("csv-parser");
 const fs = require("fs");
 const upload = multer({ dest: "uploads/" });
 
-router.post('/import', upload.single('file'), async (req, res) => {
+router.post('/import', verifyToken, upload.single('file'), async (req, res) => {
   const file = req.file;
   if (!file) return res.status(400).json({ message: 'No file uploaded' });
 

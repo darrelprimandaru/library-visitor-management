@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const verifyToken = require('./authMiddleware');
 const Student = require('../models/Student');
 const Visitor = require('../models/Visitor');
 
@@ -62,7 +63,7 @@ router.get('/', async (req, res) => {
 });
 
 // Delete a student
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
     await Student.findByIdAndDelete(id);
@@ -73,7 +74,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 // Update a student
-router.put('/:id', async (req, res) => {
+router.put('/:id', verifyToken, async (req, res) => {
   try {
     const { barcode, name, class: studentClass } = req.body;
 
@@ -116,7 +117,7 @@ const csv = require('csv-parser');
 const fs = require('fs');
 const upload = multer({ dest: 'uploads/' });
 
-router.post('/import', upload.single('csv'), async (req, res) => {
+router.post('/import', verifyToken, upload.single('csv'), async (req, res) => {
   const file = req.file;
   if (!file) return res.status(400).json({ message: 'No file uploaded' });
 
