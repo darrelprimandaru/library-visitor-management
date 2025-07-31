@@ -111,4 +111,46 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+const multer = require('multer');
+const csv = require('csv-parser');
+const fs = require('fs');
+const upload = multer({ dest: 'uploads/' });
+
+router.post('/import', upload.single('csv'), async (req, res) => {
+  const file = req.file;
+  if (!file) return res.status(400).json({ message: 'No file uploaded' });
+
+  const results = [];
+
+  fs.createReadStream(file.path)
+    .pipe(csv())
+    .on('data', (data) => results.push(data))
+    .on('end', async () => {
+      try {
+        // Clean up temp file
+        fs.unlinkSync(file.path);
+
+        const formatted = results.map(row => ({
+          barcode: row.barcode,
+          name: row.name,
+          class: row.class
+        }));
+
+        try {
+          const insertResult = await Student.insertMany(formatted, { ordered: false });
+          res.status(200).json({ message: 'Import complete', inserted: insertResult.length });
+        } catch (err) {
+          const inserted = err.insertedDocs ? err.insertedDocs.length : 0;
+          res.status(200).json({
+            message: `Import partially completed. ${inserted} new students added.`,
+            inserted
+          });
+        }
+      } catch (err) {
+        res.status(500).json({ message: 'Import failed', error: err.message });
+      }
+    });
+});
+
+
 module.exports = router;

@@ -16,7 +16,7 @@
     .sidebar.hide-sidebar .menu-text { display: none; }
     .barcode-input { max-width: 400px; }
     .summary-box { background: #f1f1f1; padding: 1rem; border-radius: 6px; margin-bottom: 1rem; }
-    .chart-container { height: 250px; }
+    .chart-container { width: 100%; max-width: 600px;}
     .student-table th,
     .student-table td {
       padding: 12px 20px;
@@ -55,7 +55,7 @@
         <a href="#" onclick="showSection('historySection')">
           <i class="bi bi-clock-history me-2"></i><span class="menu-text">History</span>
         </a>
-        <a href="#" onclick="showSection('reportSection')"><i class="bi bi-bar-chart me-2"></i><span class="menu-text">Reports</span></a>
+        <a href="#" onclick="showSection('analyticsSection')"><i class="bi bi-bar-chart me-2"></i><span class="menu-text">Analytics</span></a>
       </div>
       <!-- Main content -->
       <div class="col-md-10 p-4">
@@ -87,8 +87,10 @@
               </div>
             </div>
             <div class="col-md-4">
-              <h4 id="donutTitle" class="text-center"></h4> 
-              <canvas id="donutChart"></canvas>
+              <h4 id="donutTitle" class="text-center mb-2"></h4>
+              <div style="max-width: 400px; margin: 0 auto;"> 
+                <canvas id="donutChart" height="200"></canvas>
+              </div>
             </div>
           </div>
           <div class="mt-5">
@@ -188,7 +190,11 @@
           <div id="studentMultiControls" class="mb-3 d-flex align-items-center gap-2">
             <button class="btn btn-primary btn-sm" onclick="toggleStudentMultiSelect(true)">Select</button>
             <button class="btn btn-success btn-sm" onclick="exportStudentListCSV()">Export</button>
+            
+            <label for="csvInput" class="btn btn-success btn-sm m-0">Import</label>
+            <input type="file" id="csvInput" accept=".csv" style="display: none" />
           </div>
+
 
           <table class="table table-striped" id="studentTable">
             <thead>
@@ -210,10 +216,23 @@
         </div>
 
 
-        <!-- Placeholder Report Section -->
-        <div id="reportSection" class="section" style="display:none;">
-          <h2>Reports</h2>
-          <p>Coming soon...</p>
+        <!-- Analytics Section -->
+        <div id="analyticsSection" class="section" style="display:none;">
+          <h2 class="mb-4">Visitor Analytics</h2>
+          <h5>Total Visitors Over Time</h5>
+          <div class="chart-container mb-4">
+            <canvas id="totalVisitorsChart" height="100"></canvas>
+          </div>
+          <h5>Top Visiting Classes</h5>
+          <div class="chart-container mb-4">
+            <canvas id="topClassesChart" height="100"></canvas>
+          </div>
+          <h5>Peak Check-in Hours</h5>
+          <div class="chart-container mb-4">
+            <canvas id="peakHoursChart" height="100"></canvas>
+          </div>
+          <h5>Average Visit Duration</h5>
+          <p id="avgDurationText" class="mb-4 fw-semibold" style="font-size: 1.25rem;">Loading...</p>
         </div>
 
       </div>
@@ -250,7 +269,14 @@
       } else if (id === "historySection") {
         loadHistoryLogs();
         loadHistoryDonutChart(); // ✅ Add this line to load the chart
-      }
+      } else if (id === "studentSection") {
+        loadStudents();
+      } else if (id === "analyticsSection") {
+        loadTotalVisitorsChart();
+        loadTopClassesChart();
+        loadPeakHoursChart();
+        loadAverageDuration();
+      } 
     }
 
 
@@ -508,6 +534,36 @@
     link.click();
     URL.revokeObjectURL(url);
   }
+
+
+  async function uploadStudentCSV() {
+    const fileInput = document.getElementById('studentCsvFile');
+    const file = fileInput.files[0];
+    if (!file) return alert("Choose a CSV file");
+
+    const formData = new FormData();
+    formData.append("csv", file);
+
+    const res = await fetch(`${API_BASE}/api/students/import`, {
+      method: "POST",
+      body: formData
+    });
+
+    const result = await res.json();
+    const statusEl = document.getElementById("csvImportStatus");
+
+    if (res.ok) {
+      statusEl.textContent = `${result.inserted} students imported successfully.`;
+    } else {
+      statusEl.textContent = `Error: ${result.message || result.error}`;
+      statusEl.classList.remove("text-success");
+      statusEl.classList.add("text-danger");
+    }
+
+    fileInput.value = "";
+  }
+
+
 
   async function loadHistoryLogs() {
     try {
@@ -1387,6 +1443,158 @@
       // Refresh table rows
       loadStudents();
     }
+
+    async function loadTotalVisitorsChart() {
+      try {
+        const res = await fetch(`${API_BASE}/api/visitors/stats/total-visits`);
+        const data = await res.json();
+
+        const labels = data.map(entry => entry._id);
+        const values = data.map(entry => entry.count);
+
+        const ctx = document.getElementById("totalVisitorsChart").getContext("2d");
+
+        if (window.totalVisitorsChart && typeof window.totalVisitorsChart.destroy === "function") {
+          window.totalVisitorsChart.destroy();
+        }
+
+        window.totalVisitorsChart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels,
+            datasets: [{
+              label: "Visitors",
+              data: values,
+              borderColor: "#0d6efd",
+              backgroundColor: "rgba(13, 110, 253, 0.2)",
+              tension: 0.3,
+              fill: true,
+              pointRadius: 3
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              x: { ticks: { maxRotation: 45, minRotation: 45 } },
+              y: { beginAtZero: true }
+            },
+            plugins: {
+              legend: { display: false }
+            }
+          }
+        });
+      } catch (err) {
+        console.error("Failed to load total visitors chart:", err);
+      }
+    }
+
+    async function loadTopClassesChart() {
+      try {
+        const res = await fetch(`${API_BASE}/api/visitors/top-classes`);
+        const data = await res.json();
+
+        const labels = data.map(d => d._id || "Unknown");
+        const values = data.map(d => d.count);
+
+        const canvas = document.getElementById("topClassesChart");
+        if (window.topClassesChart && typeof window.topClassesChart.destroy === "function") {
+          window.topClassesChart.destroy();
+        }
+
+        window.topClassesChart = new Chart(canvas, {
+          type: "bar",
+          data: {
+            labels,
+            datasets: [{
+              label: "Visits",
+              data: values,
+              backgroundColor: "#0d6efd"
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              y: { beginAtZero: true }
+            }
+          }
+        });
+      } catch (err) {
+        console.error("Failed to load top classes chart:", err);
+      }
+    }
+
+    async function loadPeakHoursChart() {
+      try {
+        const res = await fetch(`${API_BASE}/api/distribution?range=weekly&tz=Asia/Jakarta`);
+        const data = await res.json();
+
+        const labels = data.map(d => d._id);
+        const values = data.map(d => d.count);
+
+        const canvas = document.getElementById("peakHoursChart");
+        if (window.peakHoursChart && typeof window.peakHoursChart.destroy === "function") {
+          window.peakHoursChart.destroy();
+        }
+
+        window.peakHoursChart = new Chart(canvas, {
+          type: "bar",
+          data: {
+            labels,
+            datasets: [{
+              label: "Visits",
+              data: values,
+              backgroundColor: "#198754"
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } }
+          }
+        });
+      } catch (err) {
+        console.error("Failed to load peak hours chart:", err);
+      }
+    }
+
+    async function loadAverageDuration() {
+      try {
+        const res = await fetch(`${API_BASE}/api/visitors/average-duration`);
+        const data = await res.json();
+        const text = data.averageDuration
+          ? `${data.averageDuration} minutes`
+          : 'No completed visits yet';
+        document.getElementById("avgDurationText").textContent = text;
+      } catch (err) {
+        console.error("Failed to load average visit duration:", err);
+        document.getElementById("avgDurationText").textContent = "Error loading data";
+      }
+    }
+
+  document.getElementById("csvInput").addEventListener("change", async function () {
+    const file = this.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("csv", file);  // ✅ Must match backend
+
+    try {
+      const res = await fetch("http://localhost:3000/api/students/import", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await res.json();
+      console.log("✅ Import result:", result);
+      alert(result.message || "Import successful!");
+    } catch (err) {
+      console.error("❌ Import error:", err);
+      alert("Import failed.");
+    }
+  });
 
 
 

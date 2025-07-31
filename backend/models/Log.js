@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const logSchema = new mongoose.Schema({
-  visitor: { type: mongoose.Schema.Types.ObjectId, ref: 'Visitor' }, // Must match model name
+  visitor: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' }, // matches model name
   checkinTime: { type: Date, default: Date.now },
   checkoutTime: Date,
   purpose: { type: String, default: '-' },

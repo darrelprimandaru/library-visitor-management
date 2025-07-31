@@ -37,37 +37,24 @@ app.post('/api/checkin', async (req, res) => {
       return res.status(404).json({ message: 'Student not found' });
     }
 
-    const visitor = await Visitor.findOneAndUpdate(
-      { barcode },
-      {
-        name: student.name,
-        class: student.class,
-        barcode: student.barcode,
-      },
-      {
-        new: true,
-        upsert: true,
-      }
-    );
-
-
     // Prevent double check-in
-    const existingLog = await Log.findOne({ visitor: visitor._id, checkoutTime: null });
+    const existingLog = await Log.findOne({ visitor: student._id, checkoutTime: null });
     if (existingLog) {
       return res.status(400).json({ message: 'Student is already checked in and has not checked out.' });
     }
 
     const log = await Log.create({
-      visitor: visitor._id,
+      visitor: student._id,      // <-- changed to use student._id directly
       purpose: purpose || '-',
     });
 
-    res.json({ visitor, log });
+    res.json({ visitor: student, log });  // <-- return the student directly
   } catch (err) {
     console.error('❌ Check-in error:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
+
 
 
 
@@ -80,7 +67,14 @@ app.post('/api/checkout/:logId', async (req, res) => {
 });
 
 app.get('/api/logs', async (req, res) => {
-  const logs = await Log.find().populate('visitor').sort({ checkinTime: -1 });
+  const logs = await Log.find()
+    .populate({
+      path: 'visitor',
+      model: 'Student',
+      select: 'name class barcode -_id' // optionally exclude _id
+    })
+    .sort({ checkinTime: -1 });
+
   res.json(logs);
 });
 

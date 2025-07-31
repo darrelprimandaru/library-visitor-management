@@ -51,10 +51,91 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Get total visitors over time (grouped by date)
+router.get('/stats/total-visits', async (req, res) => {
+  try {
+    const stats = await Log.aggregate([
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$checkinTime" }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
 
+    res.json(stats);
+  } catch (err) {
+    console.error("Error fetching total visits:", err);
+    res.status(500).json({ message: "Failed to fetch total visits" });
+  }
+});
 
+// Top visiting classes
+router.get('/top-classes', async (req, res) => {
+  try {
+    const topClasses = await Log.aggregate([
+      {
+        $lookup: {
+          from: 'students',
+          localField: 'visitor',
+          foreignField: '_id',
+          as: 'visitorInfo'
+        }
+      },
+      { $unwind: '$visitorInfo' },
+      {
+        $group: {
+          _id: '$visitorInfo.class',
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } },
+      { $limit: 5 }
+    ]);
+    res.json(topClasses);
+  } catch (err) {
+    console.error("Error getting top classes:", err);
+    res.status(500).json({ message: "Failed to get top visiting classes" });
+  }
+});
 
+// Get average visit duration in minutes
+router.get('/average-duration', async (req, res) => {
+  try {
+    const result = await Log.aggregate([
+      {
+        $match: {
+          checkoutTime: { $ne: null } // only include completed visits
+        }
+      },
+      {
+        $project: {
+          durationMinutes: {
+            $divide: [
+              { $subtract: ["$checkoutTime", "$checkinTime"] },
+              1000 * 60
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          averageDuration: { $avg: "$durationMinutes" }
+        }
+      }
+    ]);
 
+    const avg = result.length > 0 ? result[0].averageDuration : 0;
+    res.json({ averageDuration: avg.toFixed(2) });
+  } catch (err) {
+    console.error("Error calculating average duration:", err);
+    res.status(500).json({ message: "Failed to calculate average visit duration" });
+  }
+});
 
 
 module.exports = router;
