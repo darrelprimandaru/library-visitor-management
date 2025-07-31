@@ -137,5 +137,65 @@ router.get('/average-duration', async (req, res) => {
   }
 });
 
+const multer = require("multer");
+const csv = require("csv-parser");
+const fs = require("fs");
+const upload = multer({ dest: "uploads/" });
+
+router.post('/import', upload.single('file'), async (req, res) => {
+  const file = req.file;
+  if (!file) return res.status(400).json({ message: 'No file uploaded' });
+
+  const rows = [];
+  const conflicts = [];
+  const logsToInsert = [];
+
+  fs.createReadStream(file.path)
+    .pipe(csv())
+    .on("data", (data) => rows.push(data))
+    .on("end", async () => {
+      try {
+        fs.unlinkSync(file.path);
+
+        for (const row of rows) {
+          const student = await Student.findOne({ barcode: row.barcode });
+          if (!student) continue; // skip unknown students
+
+          // Check for name/class mismatch
+          if (student.name !== row.name || student.class !== row.class) {
+            conflicts.push({
+              barcode: row.barcode,
+              studentName: student.name,
+              studentClass: student.class,
+              csvName: row.name,
+              csvClass: row.class
+            });
+          }
+
+          logsToInsert.push({
+            visitor: student._id,
+            purpose: row.purpose || '-',
+            checkinTime: new Date(row.checkinTime),
+            checkoutTime: row.checkoutTime ? new Date(row.checkoutTime) : null
+          });
+        }
+
+        const insertResult = await Log.insertMany(logsToInsert, { ordered: false });
+
+        res.json({
+          message: 'Visitor logs import complete',
+          inserted: insertResult.length,
+          conflicts
+        });
+
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Import failed', error: err.message });
+      }
+    });
+});
+
+
+
 
 module.exports = router;
