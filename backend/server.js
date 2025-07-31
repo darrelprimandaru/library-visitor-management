@@ -27,6 +27,8 @@ app.use('/api/visitors', visitorRoutes);
 
 // Debug
 console.log('Available files in ./routes:', fs.readdirSync('./routes'));
+console.log("🔍 MONGODB_URI:", process.env.MONGODB_URI);
+
 
 // ✅ MongoDB connection
 mongoose.connect(process.env.MONGODB_URI, {
