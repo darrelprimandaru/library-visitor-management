@@ -15,7 +15,6 @@ console.log('Available files in ./routes:', fs.readdirSync('./routes'));
 
 const express = require('express');
 const mongoose = require('mongoose');
-const cors = require('cors');
 const studentRoutes = require('./routes/student');
 const Student = require('./models/Student');
 const Visitor = require('./models/Visitor');
