@@ -19,7 +19,5 @@ const studentSchema = new mongoose.Schema({
   }
 });
 
-studentSchema.index({ barcode: 1 }, { unique: true });
-
 module.exports = mongoose.models.Student || mongoose.model('Student', studentSchema);
 
