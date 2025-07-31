@@ -906,11 +906,13 @@
     function startEditVisitorLog(id) {
       editingLogIds.add(id);
       loadVisitorLogs();
+      loadHistoryLogs();
     }
 
     function cancelEditVisitorLog(id) {
       editingLogIds.delete(id);
       loadVisitorLogs();
+      loadHistoryLogs();
     }
 
     async function saveVisitorLog(id, btn) {
@@ -937,7 +939,8 @@
         } else {
           alert("✅ Log updated.");
           editingLogIds.delete(id);
-          loadVisitorLogs();
+          loadVisitorLogs();     // ✅ Refresh Today tab
+          loadHistoryLogs();     // ✅ 🔧 Add this to refresh History tab
         }
       } catch (err) {
         console.error("Update error:", err);
@@ -1626,6 +1629,11 @@
         status.textContent = msg;
         status.classList.remove("text-danger");
         status.classList.add("text-success");
+
+        setTimeout(() => {
+          status.textContent = "";
+          status.classList.remove("text-success", "text-danger");
+        }, 7000);
       } else {
         status.textContent = `Error: ${result.message || result.error}`;
         status.classList.remove("text-success");
