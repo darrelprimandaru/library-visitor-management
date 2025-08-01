@@ -60,6 +60,22 @@
       <!-- Main content -->
       <div class="col-md-10 p-4">
 
+        <!-- Login form -->
+        <div id="loginSection">
+          <h2>Admin Login</h2>
+          <input type="text" id="username" placeholder="Username" />
+          <input type="password" id="password" placeholder="Password" />
+          <button onclick="login()">Login</button>
+          <p id="loginError" style="color: red;"></p>
+          <button onclick="logout()">Logout</button>
+          <script>
+          function logout() {
+            localStorage.removeItem('token');
+            location.reload();
+          }
+          </script>
+        </div>
+
         <!-- Dashboard/Today Section -->
         <div id="dashboardSection" class="section">
           <h2>Welcome</h2>
@@ -1650,6 +1666,28 @@
     loadHistoryLogs();
   });
 
+  async function login() {
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    try {
+      const res = await fetch('https://wholesome-dedication-production-5a32.up.railway.app/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        localStorage.setItem('token', data.token);
+        alert("Login successful!");
+        location.reload();
+      } else {
+        document.getElementById('loginError').innerText = data.message || "Login failed.";
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+    }
+  }
 
 
   </script>
