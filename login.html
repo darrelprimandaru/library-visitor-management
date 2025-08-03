@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Login</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 50px;
+      background-color: #f0f0f0;
+    }
+    .login-box {
+      background: white;
+      max-width: 400px;
+      margin: auto;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+    }
+    button {
+      padding: 10px;
+      width: 100%;
+      background-color: #0077cc;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+    .error {
+      color: red;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <h2>Admin Login</h2>
+    <form id="loginForm">
+      <input type="text" id="username" placeholder="Username" required />
+      <input type="password" id="password" placeholder="Password" required />
+      <button type="submit">Login</button>
+      <div id="error" class="error"></div>
+    </form>
+  </div>
+
+  <script>
+    const API_BASE = "https://wholesome-dedication-production-5a32.up.railway.app"; // ✅ Set your backend URL
+
+    document.getElementById('loginForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      const errorBox = document.getElementById('error');
+
+      try {
+        const response = await fetch(`${API_BASE}/api/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          localStorage.setItem('token', data.token);
+          window.location.href = 'index.html'; // redirect to main dashboard
+        } else {
+          errorBox.textContent = data.error || 'Login failed';
+        }
+      } catch (err) {
+        errorBox.textContent = 'Error connecting to server';
+      }
+    });
+  </script>
+</body>
+</html>
