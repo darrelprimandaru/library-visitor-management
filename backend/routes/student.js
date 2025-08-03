@@ -5,7 +5,7 @@ const Student = require('../models/Student');
 const Visitor = require('../models/Visitor');
 
 // Add a new student
-router.post('/', async (req, res) => {
+router.post('/', verifyToken, async (req, res) => {
   try {
     const { barcode, name, class: studentClass } = req.body;
 
@@ -53,7 +53,7 @@ router.get('/:barcode', async (req, res) => {
 });
 
 // List all students
-router.get('/', async (req, res) => {
+router.get('/', verifyToken, async (req, res) => {
   try {
     const students = await Student.find();
     res.json(students);

@@ -39,7 +39,7 @@ router.put('/:id', verifyToken, async (req, res) => {
 });
 
 // Get all visitor logs with populated student data
-router.get('/', async (req, res) => {
+router.get('/', verifyToken, async (req, res) => {
   try {
     const logs = await Log.find()
       .populate('visitor') // this must match the model name exactly
