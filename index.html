@@ -41,6 +41,12 @@
 
 </head>
 <body>
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = 'login.html';
+    }
+  </script>
   <div class="container-fluid">
     <div class="row">
       <!-- Sidebar -->
@@ -60,24 +66,11 @@
       <!-- Main content -->
       <div class="col-md-10 p-4">
 
-        <!-- Login form -->
-        <div id="loginSection">
-          <h2>Admin Login</h2>
-          <input type="text" id="username" placeholder="Username" />
-          <input type="password" id="password" placeholder="Password" />
-          <button onclick="login()">Login</button>
-          <p id="loginError" style="color: red;"></p>
-          <button onclick="logout()">Logout</button>
-          <script>
-          function logout() {
-            localStorage.removeItem('token');
-            location.reload();
-          }
-          </script>
-        </div>
-
         <!-- Dashboard/Today Section -->
         <div id="dashboardSection" class="section">
+          <div style="position: absolute; top: 16px; right: 16px;">
+            <button class="btn btn-outline-secondary btn-sm" onclick="logout()">Logout</button>
+          </div>
           <h2>Welcome</h2>
           <div class="summary-box">
             📊 Total visits today: <strong id="todayVisitorCount">--</strong>
@@ -1689,6 +1682,10 @@
     }
   }
 
+  function logout() {
+    localStorage.removeItem('token');
+    window.location.href = 'login.html';
+  }
 
   </script>
 </body>
