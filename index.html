@@ -255,12 +255,23 @@
     let editingLogIds = new Set();
     let activeBarcodes = new Set();
 
+    function getAuthHeaders() {
+      const token = localStorage.getItem("token");
+      return token ? { Authorization: `Bearer ${token}` } : {};
+    }
 
     const API_BASE = "https://wholesome-dedication-production-5a32.up.railway.app";
 
     async function fetchActiveStudentBarcodes() {
       try {
-        const res = await fetch(`${API_BASE}/api/students`);
+        const res = await fetch(`${API_BASE}/api/students`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders()
+          },
+          body: JSON.stringify({ barcode, name, class: studentClass })
+        });
         const students = await res.json();
         activeBarcodes = new Set(students.map(s => s.barcode));
       } catch (err) {
