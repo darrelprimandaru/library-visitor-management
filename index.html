@@ -389,7 +389,6 @@
           logDate.getDate() === todayDate;
 
         if (!isToday) continue; // ⛔ Skip non-today logs
-        const visitor = log.visitor;
 
         const isMissingStudent = !log.studentName || !activeBarcodes.has(log.barcode);
 

@@ -1,77 +1,67 @@
 # Library Visitor Management System
 
-A simple system for tracking library visitors, built for local schools.
+A web-based system for tracking library visitors, built for local schools.
 
 ## Features
 
 - Barcode check-in and check-out
+- Student profiles database
+- Visitor logs with name/class frozen at check-in
+- Edit or delete past visitor logs
+- CSV import of historical logs (admin only)
 - Daily snapshots and time distribution of visits
-- Visitor log with export functionality
-- Student profiles (coming soon)
-- Reports and visitor analytics (coming soon)
+- Top visiting classes and average visit duration
+- Export logs to CSV
+- Multi-select checkboxes for batch delete
+- Admin login with JWT authentication
+- Fully separated frontend and backend
 
 ## Folder Structure
 
 ```
-backend/    # Node.js + Express + MongoDB (API server)
-frontend/   # HTML + JS + CSS (Client)
+library-visitor-management/
+├── backend/     # Node.js + Express + MongoDB (API server)
+└── frontend/    # HTML + JS + CSS (Client)
 ```
 
 ## Getting Started
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (v18+ recommended)
-- [npm](https://www.npmjs.com/)
-- [MongoDB](https://www.mongodb.com/) (local or [MongoDB Atlas](https://www.mongodb.com/atlas))
+- Node.js (v18+ recommended)
+- npm
+- MongoDB (local or Atlas)
 
 ### Installation
 
-1. **Clone the repo**
+Clone the repository:
 
-    ```bash
-    git clone https://github.com/YOUR_USERNAME/library-visitor-management.git
-    cd library-visitor-management
-    ```
+```
+git clone https://github.com/YOUR_USERNAME/library-visitor-management.git
+cd library-visitor-management
+```
 
-2. **Install backend dependencies**
+#### Backend Setup
 
-    ```bash
-    cd backend
-    npm install
-    ```
+```
+cd backend
+npm install
+```
 
-3. **Configure MongoDB**
+Create a `.env` file in the `backend/` folder:
 
-    - By default, the backend expects a local MongoDB server.
-    - For cloud, set your connection string in `.env`:
-      ```
-      MONGODB_URI=mongodb+srv://<your_atlas_connection>
-      ```
+```
+MONGODB_URI=mongodb+srv://<your_mongo_uri>
+JWT_SECRET=your_jwt_secret
+```
 
-4. **Start the backend server**
+Start the backend server:
 
-    ```bash
-    node server.js
-    ```
+```
+node server.js
+```
 
-5. **Open the frontend**
+#### Frontend
 
-    - Open `frontend/index.html` in your browser.
-    - Or use VS Code’s Live Server.
-
-## Roadmap
-
-- [ ] Student profiles database
-- [ ] Real time distribution chart
-- [ ] Export/import logs
-- [ ] Visitors and reports tabs
-- [ ] Cloud deployment guide
-
-## License
-
-MIT
-
-## Author
-
-[@darrelprimandaru](https://github.com/darrelprimandaru)
+- Open `frontend/index.html` in your browser
+- Or use the Live Server extension in VS Code
