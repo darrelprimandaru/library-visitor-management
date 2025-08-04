@@ -1455,9 +1455,9 @@
           const checkout = log.checkoutTime ? new Date(log.checkoutTime).toLocaleString() : '-';
 
           row.innerHTML = `
-            <td>${log.visitor?.barcode || '-'}</td>
-            <td>${log.visitor?.name || 'Unknown'}</td>
-            <td>${log.visitor?.class || '-'}</td>
+            <td>${log.barcode || '-'}</td>
+            <td>${log.studentName || 'Unknown'}</td>
+            <td>${log.studentClass || '-'}</td>
             <td>${log.purpose || '-'}</td>
             <td>${checkin}</td>
             <td>${checkout}</td>
