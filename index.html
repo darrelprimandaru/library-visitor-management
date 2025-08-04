@@ -393,8 +393,8 @@
 
         const isMissingStudent = !visitor || !activeBarcodes.has(visitor.barcode);
 
-        const name = visitor?.name || 'Unknown';
-        const studentClass = isMissingStudent ? '-' : visitor.class;
+        const name = log.studentName || 'Unknown';
+        const studentClass = log.studentClass || '-';
         const warningIcon = isMissingStudent
           ? ' <span title="Student no longer exists" style="color:#dc3545;">⚠️</span>'
           : '';
