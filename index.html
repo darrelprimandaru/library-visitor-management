@@ -391,7 +391,7 @@
         if (!isToday) continue; // ⛔ Skip non-today logs
         const visitor = log.visitor;
 
-        const isMissingStudent = !visitor || !activeBarcodes.has(visitor.barcode);
+        const isMissingStudent = !log.studentName || !activeBarcodes.has(log.barcode);
 
         const name = log.studentName || 'Unknown';
         const studentClass = log.studentClass || '-';
@@ -644,8 +644,8 @@
         }
 
         const visitor = log.visitor || {};
-        const barcode = visitor.barcode || null;
-        const isMissingStudent = !barcode || !activeBarcodes.has(barcode);
+        const barcode = log.barcode || null;
+        const isMissingStudent = !log.studentName || !activeBarcodes.has(barcode);
 
         const name = visitor.name || 'Unknown';
         const studentClass = visitor.class || '-';
