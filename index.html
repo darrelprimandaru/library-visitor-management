@@ -605,129 +605,129 @@
 
 
 
-  async function loadHistoryLogs() {
-    try {
-      // ⬅️ Get active barcodes first
-      const studentRes = await fetch(`${API_BASE}/api/students`, {
-        headers: {
-          ...getAuthHeaders()
-        }
-      });
-      const students = await studentRes.json();
-      const activeBarcodes = new Set(students.map(s => s.barcode));
+async function loadHistoryLogs() {
+  try {
+    // ⬅️ Get active barcodes first
+    const studentRes = await fetch(`${API_BASE}/api/students`, {
+      headers: {
+        ...getAuthHeaders()
+      }
+    });
+    const students = await studentRes.json();
+    const activeBarcodes = new Set(students.map(s => s.barcode));
 
-      const res = await fetch(`${API_BASE}/api/logs`, {
-        headers: {
-          ...getAuthHeaders()
-        }
-      });
-      const logs = await res.json();
-      const tbody = document.getElementById('historyTableBody');
-      tbody.innerHTML = '';
+    const res = await fetch(`${API_BASE}/api/logs`, {
+      headers: {
+        ...getAuthHeaders()
+      }
+    });
+    const logs = await res.json();
+    const tbody = document.getElementById('historyTableBody');
+    tbody.innerHTML = '';
 
-      const filterDateStr = document.getElementById("historyDateFilter").value;
-      const filterDate = filterDateStr ? new Date(filterDateStr) : null;
+    const filterDateStr = document.getElementById("historyDateFilter").value;
+    const filterDate = filterDateStr ? new Date(filterDateStr) : null;
 
-      for (const log of logs) {
-        const isMulti = !!window.historyMultiSelectMode;
-        const isEditing = editingLogIds.has(log._id);
-        const checkinDate = new Date(log.checkinTime);
-        const logDay = new Date(checkinDate);
-        logDay.setHours(0, 0, 0, 0);
+    for (const log of logs) {
+      const isMulti = !!window.historyMultiSelectMode;
+      const isEditing = editingLogIds.has(log._id);
+      const checkinDate = new Date(log.checkinTime);
+      const logDay = new Date(checkinDate);
+      logDay.setHours(0, 0, 0, 0);
 
-        // 🧹 Filter by selected date if applicable
-        if (filterDate) {
-          const fDate = new Date(filterDate);
-          fDate.setHours(0, 0, 0, 0);
-          if (logDay.getTime() !== fDate.getTime()) continue;
-        }
-
-        const visitor = log.visitor || {};
-        const barcode = log.barcode || null;
-        const isMissingStudent = !log.studentName || !activeBarcodes.has(barcode);
-
-        const name = visitor.name || 'Unknown';
-        const studentClass = visitor.class || '-';
-        const purpose = log.purpose || '-';
-
-        const checkin = new Date(log.checkinTime).toLocaleString();
-        const checkout = log.checkoutTime ? new Date(log.checkoutTime).toLocaleString() : '-';
-
-        let duration = '-';
-        if (log.checkoutTime) {
-          const ms = new Date(log.checkoutTime) - new Date(log.checkinTime);
-          const mins = Math.floor(ms / 60000);
-          duration = mins >= 60 ? `${(mins / 60).toFixed(1)} hrs` : `${mins} mins`;
-        }
-
-        const tr = document.createElement('tr');
-        if (isMissingStudent) {
-          tr.style.opacity = 0.5;
-          tr.style.color = "#888";
-        }
-
-        tr.innerHTML = `
-          <td class="logCheckboxCell" style="display: ${isMulti ? '' : 'none'};">
-            <input type="checkbox" class="visitorCheckbox" data-id="${log._id}">
-          </td>
-          <td>${name}${isMissingStudent ? ' <span title="Student no longer exists" style="color:#dc3545;">⚠️</span>' : ''}</td>
-          <td>
-            ${editingLogIds.has(log._id)
-              ? `<input class="form-control form-control-sm" value="${purpose}" onkeydown="handleVisitorLogKey(event, '${log._id}', this)">`
-              : purpose}
-          </td>
-          <td>${studentClass}</td>
-          <td>${checkin}</td>
-          <td>${checkout}</td>
-          <td>${duration}</td>
-          <td>
-            ${isMulti
-              ? `
-                <div class="d-flex align-items-center gap-2">
-                  <button class="btn btn-sm btn-outline-danger" onclick="deleteVisitorLog('${log._id}')">Delete</button>
-                </div>
-              `
-              : isEditing
-                ? `
-                  <div class="d-flex align-items-center gap-2">
-                    <button class="btn btn-sm btn-success" onclick="saveVisitorLog('${log._id}', this)">Save</button>
-                    <button class="btn btn-sm btn-secondary" onclick="cancelEditVisitorLog('${log._id}')">Cancel</button>
-                  </div>
-                `
-                : `
-                  <div class="d-flex align-items-center gap-2">
-                    <div class="d-flex gap-2">
-                      <button class="btn btn-sm btn-outline-primary btn-edit-log" onclick="startEditVisitorLog('${log._id}')">Edit</button>
-                      <button class="btn btn-sm btn-outline-danger" onclick="deleteVisitorLog('${log._id}')">Delete</button>
-                    </div>
-                    ${!log.checkoutTime
-                      ? `<button class="btn btn-sm btn-outline-secondary btn-checkout-log" onclick="handleCheckout('${log._id}')">Check Out</button>`
-                      : ""}
-                  </div>
-                `}
-          </td>
-
-
-
-
-        `;
-
-        
-        const checkbox = tr.querySelector(".visitorCheckbox");
-        if (checkbox) checkbox.addEventListener("change", updateLogSelectedCount);
-
-
-        tbody.appendChild(tr);
+      // 🧹 Filter by selected date if applicable
+      if (filterDate) {
+        const fDate = new Date(filterDate);
+        fDate.setHours(0, 0, 0, 0);
+        if (logDay.getTime() !== fDate.getTime()) continue;
       }
 
-      // ✅ Ensure all checkboxes are visually and logically unchecked on load
-      document.getElementById("selectAllHistoryLogs").checked = false;
-      updateLogSelectedCount();
+      // ✅ Use direct fields from Visitor model
+      const barcode = log.barcode || '';
+      const name = log.studentName || 'Unknown';
+      const studentClass = log.studentClass || '-';
+      const purpose = log.purpose || '-';
 
-    } catch (err) {
-      console.error("Failed to load history logs:", err);
+      const isMissingStudent = !log.studentName || !activeBarcodes.has(barcode);
+      const warningIcon = isMissingStudent
+        ? ' <span title="Student no longer exists" style="color:#dc3545;">⚠️</span>'
+        : '';
+      const nameWithIcon = name + warningIcon;
+
+      const checkin = new Date(log.checkinTime).toLocaleString();
+      const checkout = log.checkoutTime
+        ? new Date(log.checkoutTime).toLocaleString()
+        : '-';
+
+      let duration = '-';
+      if (log.checkoutTime) {
+        const ms = new Date(log.checkoutTime) - new Date(log.checkinTime);
+        const mins = Math.floor(ms / 60000);
+        duration = mins >= 60 ? `${(mins / 60).toFixed(1)} hrs` : `${mins} mins`;
+      }
+
+      const tr = document.createElement('tr');
+      if (isMissingStudent) {
+        tr.style.opacity = 0.5;
+        tr.style.color = "#888";
+      }
+
+      tr.innerHTML = `
+        <td class="logCheckboxCell" style="display: ${isMulti ? '' : 'none'};">
+          <input type="checkbox" class="visitorCheckbox" data-id="${log._id}">
+        </td>
+        <td>${nameWithIcon}</td>
+        <td>
+          ${isEditing
+            ? `<input class="form-control form-control-sm" value="${purpose}" onkeydown="handleVisitorLogKey(event, '${log._id}', this)">`
+            : purpose}
+        </td>
+        <td>${studentClass}</td>
+        <td>${checkin}</td>
+        <td>${checkout}</td>
+        <td>${duration}</td>
+        <td>
+          ${isMulti
+            ? `
+              <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteVisitorLog('${log._id}')">Delete</button>
+              </div>
+            `
+            : isEditing
+              ? `
+                <div class="d-flex align-items-center gap-2">
+                  <button class="btn btn-sm btn-success" onclick="saveVisitorLog('${log._id}', this)">Save</button>
+                  <button class="btn btn-sm btn-secondary" onclick="cancelEditVisitorLog('${log._id}')">Cancel</button>
+                </div>
+              `
+              : `
+                <div class="d-flex align-items-center gap-2">
+                  <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-primary btn-edit-log" onclick="startEditVisitorLog('${log._id}')">Edit</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteVisitorLog('${log._id}')">Delete</button>
+                  </div>
+                  ${!log.checkoutTime
+                    ? `<button class="btn btn-sm btn-outline-secondary btn-checkout-log" onclick="handleCheckout('${log._id}')">Check Out</button>`
+                    : ""}
+                </div>
+              `}
+        </td>
+      `;
+
+      const checkbox = tr.querySelector(".visitorCheckbox");
+      if (checkbox) checkbox.addEventListener("change", updateLogSelectedCount);
+
+      tbody.appendChild(tr);
     }
+
+    document.getElementById("selectAllHistoryLogs").checked = false;
+    updateLogSelectedCount();
+
+  } catch (err) {
+    console.error("Failed to load history logs:", err);
   }
+}
+
 
     async function exportHistoryLogsCSV() {
       const res = await fetch(`${API_BASE}/api/logs`, {
