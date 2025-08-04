@@ -188,7 +188,7 @@
         <div id="studentSection" class="section" style="display: none;">
           <h2>Register New Student</h2>
           <form id="studentForm">
-            <input type="text" id="barcode" placeholder="5-Digit Barcode" required maxlength="5" inputmode="numeric">
+            <input type="text" id="barcode" placeholder="10-Digit Barcode" required maxlength="10" inputmode="numeric">
             <input type="text" id="name" placeholder="Name" required pattern="[A-Za-z ]+">
             <input type="text" id="class" placeholder="Class" required pattern="(?:[1-9]|1[0-2])[a-zA-Z]{0,2}" oninput="this.value = this.value.toUpperCase();">
             <button type="submit">Add Student</button>
