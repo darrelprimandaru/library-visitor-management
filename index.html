@@ -488,30 +488,20 @@
   }
 
   function convertLogsToCSV(logs) {
-    const header = ['Name', 'Class', 'Purpose', 'Check-in Time', 'Check-out Time', 'Duration'];
+    const header = ['barcode', 'name', 'class', 'checkinTime', 'checkoutTime', 'purpose'];
     const rows = logs.map(log => {
-      const visitor = log.visitor || {};
-      const name = visitor.name || 'Unknown';
-      const studentClass = visitor.class || '-';
+      const student = log.visitor || {};
+      const barcode = student.barcode || '';
+      const name = student.name || log.studentName || '';
+      const studentClass = student.class || log.studentClass || '';
+      const checkin = log.checkinTime || '';
+      const checkout = log.checkoutTime || '';
       const purpose = log.purpose || '-';
-      
-      const checkin = new Date(log.checkinTime).toLocaleString();
-      const checkout = log.checkoutTime ? new Date(log.checkoutTime).toLocaleString() : '-';
 
-      let duration = '-';
-      if (log.checkoutTime) {
-        const ms = new Date(log.checkoutTime) - new Date(log.checkinTime);
-        const mins = Math.floor(ms / 60000);
-        duration = mins >= 60
-          ? `${(mins / 60).toFixed(1)} hr${mins >= 120 ? 's' : ''}`
-          : `${mins} min${mins !== 1 ? 's' : ''}`;
-      }
-
-      return [name, studentClass, purpose, checkin, checkout, duration];
+      return [barcode, name, studentClass, checkin, checkout, purpose].join(',');
     });
 
-    const csv = [header, ...rows].map(row => row.join(",")).join("\n");
-    return csv;
+    return [header.join(','), ...rows].join('\n');
   }
 
   function downloadCSV(content, filename) {
@@ -802,6 +792,11 @@ async function loadHistoryLogs() {
       document.getElementById("historyDeleteSelectedBtn").classList.toggle("d-none", !enabled);
       document.getElementById("historyCancelSelectBtn").classList.toggle("d-none", !enabled);
 
+      // ⬅️ Fix: restore Import label
+      if (!enabled) {
+        document.querySelector('label[for="logCsvInput"]').style.display = 'inline-block';
+      }
+
       // Uncheck master checkbox now
       document.getElementById("selectAllHistoryLogs").checked = false;
 
@@ -814,6 +809,7 @@ async function loadHistoryLogs() {
         updateLogSelectedCount();
       }, 50);
     }
+
 
 
 
