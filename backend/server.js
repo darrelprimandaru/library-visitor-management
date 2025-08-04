@@ -19,7 +19,6 @@ const studentRoutes = require('./routes/student');
 const visitorRoutes = require('./routes/visitor');
 const Student = require('./models/Student');
 const Visitor = require('./models/Visitor');
-const Log = require('./models/Log');
 
 app.use('/api', authRoutes);
 app.use('/api/students', studentRoutes);
@@ -47,11 +46,13 @@ app.post('/api/checkin', async (req, res) => {
     const student = await Student.findOne({ barcode });
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
-    const existingLog = await Log.findOne({ visitor: student._id, checkoutTime: null });
+    const existingLog = await Visitor.findOne({ barcode: student.barcode, checkoutTime: null });
     if (existingLog) return res.status(400).json({ message: 'Already checked in' });
 
-    const log = await Log.create({
-      visitor: student._id,
+    const log = await Visitor.create({
+      barcode: student.barcode,
+      studentName: student.name,
+      studentClass: student.class,
       purpose: purpose || '-',
     });
 
@@ -63,23 +64,19 @@ app.post('/api/checkin', async (req, res) => {
 });
 
 app.post('/api/checkout/:logId', async (req, res) => {
-  const log = await Log.findByIdAndUpdate(req.params.logId, { checkoutTime: new Date() }, { new: true });
+  const log = await Visitor.findByIdAndUpdate(req.params.logId, { checkoutTime: new Date() }, { new: true });
   if (!log) return res.status(404).json({ message: 'Log not found' });
   res.json(log);
 });
 
 app.get('/api/logs', async (req, res) => {
-  const logs = await Log.find().populate({
-    path: 'visitor',
-    model: 'Student',
-    select: 'name class barcode -_id'
-  }).sort({ checkinTime: -1 });
+  const logs = await Visitor.find().sort({ checkinTime: -1 });
 
   res.json(logs);
 });
 
 app.get('/api/stats', async (req, res) => {
-  const stats = await Log.aggregate([
+  const stats = await Visitor.aggregate([
     {
       $group: {
         _id: { $dateToString: { format: "%Y-%m-%d", date: "$checkinTime" } },
@@ -106,7 +103,7 @@ app.get('/api/distribution', async (req, res) => {
   else start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
 
   try {
-    const result = await Log.aggregate([
+    const result = await Visitor.aggregate([
       { $match: { checkinTime: { $gte: start } } },
       {
         $project: {

@@ -897,6 +897,7 @@
 
         alert("Visitor log deleted.");
         loadVisitorLogs();
+        loadHistoryLogs();
         loadDonutChart();
         loadDailyChart();
       } catch (err) {
@@ -1694,6 +1695,7 @@
       const result = await res.json();
       console.log("✅ Import result:", result);
       alert(result.message || "Import successful!");
+      await loadStudents();
     } catch (err) {
       console.error("❌ Import error:", err);
       alert("Import failed.");

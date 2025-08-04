@@ -5,8 +5,8 @@ const visitorSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  name: String,
-  class: String,
+  studentName: String,       // ✅ name at time of check-in
+  studentClass: String,      // ✅ class at time of check-in
   checkinTime: {
     type: Date,
     default: Date.now
@@ -19,8 +19,6 @@ const visitorSchema = new mongoose.Schema({
     type: String,
     default: '-'
   }
-
 });
 
 module.exports = mongoose.models.Visitor || mongoose.model('Visitor', visitorSchema);
-
