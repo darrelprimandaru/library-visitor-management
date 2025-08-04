@@ -10,8 +10,8 @@ router.post('/', verifyToken, async (req, res) => {
     const { barcode, name, class: studentClass } = req.body;
 
     // ✅ Validate barcode format
-    if (!/^\d{5}$/.test(barcode)) {
-      return res.status(400).json({ error: "Barcode must be exactly 5 digits (00000 to 99999)." });
+    if (!/^\d{1,10}$/.test(barcode)) {
+      return res.status(400).json({ error: "Barcode must be exactly 10 digits." });
     }
 
     // ✅ Validate name (letters and spaces)
