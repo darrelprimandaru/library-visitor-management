@@ -322,7 +322,10 @@
       try {
         const res = await fetch(`${API_BASE}/api/checkin`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders()
+          },
           body: JSON.stringify({ barcode, purpose }),
         });
 
@@ -353,12 +356,20 @@
    async function loadVisitorLogs() {
     try {
       // 🔁 Fetch active students first to get valid barcodes
-      const activeStudentsRes = await fetch(`${API_BASE}/api/students`);
+      const activeStudentsRes = await fetch(`${API_BASE}/api/students`, {
+        headers: {
+          ...getAuthHeaders()
+        }
+      });
       const activeStudents = await activeStudentsRes.json();
       activeBarcodes = new Set(activeStudents.map(s => s.barcode));
 
       // 📥 Fetch all visitor logs
-      const res = await fetch(`${API_BASE}/api/logs`);
+      const res = await fetch(`${API_BASE}/api/logs`, {
+        headers: {
+          ...getAuthHeaders()
+        }
+      });
       const logs = await res.json();
       const tbody = document.getElementById('visitorTable');
       tbody.innerHTML = '';
@@ -515,7 +526,11 @@
   }
 
   async function exportTodayLogsCSV() {
-    const res = await fetch(`${API_BASE}/api/logs`);
+    const res = await fetch(`${API_BASE}/api/logs`, {
+      headers: {
+        ...getAuthHeaders()
+      }
+    });
     const logs = await res.json();
 
     const now = new Date();
@@ -569,6 +584,9 @@
 
     const res = await fetch(`${API_BASE}/api/students/import`, {
       method: "POST",
+      headers: {
+        ...getAuthHeaders()
+      },
       body: formData
     });
 
@@ -591,11 +609,19 @@
   async function loadHistoryLogs() {
     try {
       // ⬅️ Get active barcodes first
-      const studentRes = await fetch(`${API_BASE}/api/students`);
+      const studentRes = await fetch(`${API_BASE}/api/students`, {
+        headers: {
+          ...getAuthHeaders()
+        }
+      });
       const students = await studentRes.json();
       const activeBarcodes = new Set(students.map(s => s.barcode));
 
-      const res = await fetch(`${API_BASE}/api/logs`);
+      const res = await fetch(`${API_BASE}/api/logs`, {
+        headers: {
+          ...getAuthHeaders()
+        }
+      });
       const logs = await res.json();
       const tbody = document.getElementById('historyTableBody');
       tbody.innerHTML = '';
@@ -705,7 +731,11 @@
   }
 
     async function exportHistoryLogsCSV() {
-      const res = await fetch(`${API_BASE}/api/logs`);
+      const res = await fetch(`${API_BASE}/api/logs`, {
+        headers: {
+          ...getAuthHeaders()
+        }
+      });
       const logs = await res.json();
 
       const now = new Date();
@@ -749,7 +779,12 @@
       if (!confirm(`Delete ${ids.length} log(s)?`)) return;
 
       for (const id of ids) {
-        await fetch(`${API_BASE}/api/visitors/${id}`, { method: "DELETE" });
+        await fetch(`${API_BASE}/api/visitors/${id}`, {
+          method: "DELETE",
+          headers: {
+            ...getAuthHeaders()
+          }
+        });
       }
 
       toggleHistoryMultiSelect(false);
@@ -828,7 +863,13 @@
 
     async function handleCheckout(logId) {
       try {
-        const res = await fetch(`${API_BASE}/api/checkout/${logId}`, { method: 'POST' });
+        const res = await fetch(`${API_BASE}/api/checkout/${logId}`, {
+          method: 'POST',
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders()
+          }
+        });
         if (res.ok) {
           alert("✅ Checked out successfully");
           loadVisitorLogs();
@@ -845,6 +886,9 @@
       try {
         const res = await fetch(`${API_BASE}/api/visitors/${logId}`, {
           method: "DELETE",
+          headers: {
+            ...getAuthHeaders()
+          }
         });
 
         if (!res.ok) {
@@ -883,7 +927,12 @@
 
       for (const id of selected) {
         try {
-          await fetch(`${API_BASE}/api/visitors/${id}`, { method: 'DELETE' });
+          await fetch(`${API_BASE}/api/visitors/${id}`, {
+            method: 'DELETE',
+            headers: {
+              ...getAuthHeaders()
+            }
+          });
         } catch (err) {
           console.error("Failed to delete visitor log:", err);
         }
@@ -949,7 +998,10 @@
       try {
         const res = await fetch(`${API_BASE}/api/visitors/${id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders()
+          },
           body: JSON.stringify({ purpose })
         });
 
@@ -1158,7 +1210,10 @@
       try {
         const res = await fetch(`${API_BASE}/api/students`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders()
+          },
           body: JSON.stringify({ barcode: paddedBarcode, name, class: studentClass })
         });
 
@@ -1196,7 +1251,11 @@
       if (counter) counter.textContent = "0";
       
       try {
-        const res = await fetch(`${API_BASE}/api/students`);
+        const res = await fetch(`${API_BASE}/api/students`, {
+          headers: {
+            ...getAuthHeaders()
+          }
+        });
         const data = await res.json();
 
         const searchQuery = document.getElementById("studentSearch").value.toLowerCase();
@@ -1286,6 +1345,9 @@
       try {
         await fetch(`${API_BASE}/api/students/${id}`, {
           method: "DELETE",
+          headers: {
+            ...getAuthHeaders()
+          }
         });
         loadStudents();
       } catch (err) {
@@ -1322,7 +1384,10 @@
       try {
         const res = await fetch(`${API_BASE}/api/students/${id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders()
+          },
           body: JSON.stringify(payload)
         });
 
@@ -1373,7 +1438,11 @@
 
     async function loadLogs() {
       try {
-        const res = await fetch(`${API_BASE}/api/logs`);
+        const res = await fetch(`${API_BASE}/api/logs`, {
+          headers: {
+            ...getAuthHeaders()
+          }
+        });
         const logs = await res.json();
 
         const logTableBody = document.getElementById("logTableBody");
@@ -1425,7 +1494,12 @@
 
       for (const id of selected) {
         try {
-          await fetch(`${API_BASE}/api/students/${id}`, { method: 'DELETE' });
+          await fetch(`${API_BASE}/api/students/${id}`, {
+            method: 'DELETE',
+            headers: {
+              ...getAuthHeaders()
+            }
+          });
         } catch (err) {
           console.error("Failed to delete student:", err);
         }
@@ -1610,8 +1684,12 @@
     try {
       const res = await fetch("https://wholesome-dedication-production-5a32.up.railway.app/api/students/import", {
         method: "POST",
+        headers: {
+          ...getAuthHeaders()
+        },
         body: formData,
       });
+
 
       const result = await res.json();
       console.log("✅ Import result:", result);
@@ -1634,6 +1712,9 @@
     try {
       const res = await fetch(`${API_BASE}/api/visitors/import`, {
         method: "POST",
+        headers: {
+          ...getAuthHeaders()
+        },
         body: formData
       });
 
