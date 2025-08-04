@@ -39,8 +39,8 @@ app.post('/api/checkin', async (req, res) => {
   try {
     const { barcode, purpose } = req.body;
 
-    if (!/^\d{1,10}$/.test(barcode)) {
-      return res.status(400).json({ message: 'Barcode must be a number from 1 to 10 digits.' });
+    if (!/^\d{5}$/.test(barcode)) {
+      return res.status(400).json({ message: 'Barcode must be a number from 00000 to 99999.' });
     }
 
     const student = await Student.findOne({ barcode });
