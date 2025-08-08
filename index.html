@@ -76,14 +76,7 @@
             📊 Total visits today: <strong id="todayVisitorCount">--</strong>
           </div>
           <div class="d-flex flex-wrap gap-2 align-items-center mb-4">
-            <input
-              type="text"
-              id="barcodeInput"
-              class="form-control w-auto"
-              maxlength="5"
-              placeholder="Scan or type barcode"
-              style="max-width: 200px"
-            />
+            <input type="text" id="barcodeInput" class="form-control w-auto" maxlength="10" ... />
 
             <input type="text" id="purposeInput" class="form-control barcode-input" placeholder="Purpose (optional)" />
             <button class="btn btn-primary" onclick="handleBarcodeSubmit()">Add</button>
@@ -188,7 +181,7 @@
         <div id="studentSection" class="section" style="display: none;">
           <h2>Register New Student</h2>
           <form id="studentForm">
-            <input type="text" id="barcode" placeholder="5-Digit Barcode" required maxlength="5" inputmode="numeric">
+            <input type="text" id="barcode" placeholder="10-Digit Barcode" required maxlength="10" inputmode="numeric">
             <input type="text" id="name" placeholder="Name" required pattern="[A-Za-z ]+">
             <input type="text" id="class" placeholder="Class" required pattern="(?:[1-9]|1[0-2])[a-zA-Z]{0,2}" oninput="this.value = this.value.toUpperCase();">
             <button type="submit">Add Student</button>
@@ -309,8 +302,8 @@
       const purposeInput = document.getElementById("purposeInput");
       let barcode = document.getElementById("barcodeInput").value.trim();
 
-      if (!/^\d{1,5}$/.test(barcode)) {
-        alert("Barcode must be a number from 00000 to 99999.");
+      if (!/^\d{10}$/.test(barcode)) {
+        alert("Barcode must be exactly 10 digits.");
         return;
       }
 
@@ -1185,11 +1178,11 @@ async function loadHistoryLogs() {
       const studentClass = document.getElementById("class").value.trim();
 
       // Validate barcode
-      if (!/^\d{1,5}$/.test(barcode)) {
-        alert("Barcode must be a number from 00000 to 99999.");
+      if (!/^\d{10}$/.test(barcode)) {
+        alert("Barcode must be exactly 10 digits.");
         return;
       }
-      const paddedBarcode = barcode.padStart(5, '0');
+      const paddedBarcode = barcode; // no need to pad now
 
       // Validate name
       if (!/^[A-Za-z ]+$/.test(name)) {
@@ -1417,8 +1410,8 @@ async function loadHistoryLogs() {
     });
 
     document.getElementById("barcodeInput").addEventListener("input", function () {
-      if (this.value.length > 5) {
-        this.value = this.value.slice(0, 5);
+      if (this.value.length > 10) {
+        this.value = this.value.slice(0, 10);
       }
     });
 

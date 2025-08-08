@@ -5,7 +5,7 @@ const studentSchema = new mongoose.Schema({
     type: String,
     required: true,
     unique: true,
-    match: /^\d{5}$/, // must be exactly 5 digits
+    match: /^\d{10}$/, // must be exactly 10 digits
   },
   name: {
     type: String,
